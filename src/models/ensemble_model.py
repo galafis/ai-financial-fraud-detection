@@ -1,502 +1,797 @@
 """
 AI-Powered Financial Fraud Detection System
-Ensemble Model for Real-Time Fraud Detection
+Ensemble Model Implementation
 
-This module implements an advanced ensemble model combining multiple ML algorithms
-for high-precision fraud detection in financial transactions.
+This module implements the ensemble model that combines multiple machine learning
+models for fraud detection, including Random Forest, XGBoost, Neural Networks,
+and Autoencoders for anomaly detection.
+
+Author: Gabriel Demetrios Lafis
+Date: June 2025
 """
 
 import numpy as np
 import pandas as pd
-import joblib
+import pickle
+import os
 import logging
-from typing import Dict, List, Tuple, Optional
-from sklearn.ensemble import RandomForestClassifier, IsolationForest
-from sklearn.model_selection import cross_val_score, StratifiedKFold
-from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
-from xgboost import XGBClassifier
-import tensorflow as tf
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
-import optuna
-import shap
-from datetime import datetime
+from typing import Dict, List, Tuple, Union, Optional
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# ML Libraries
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.calibration import CalibratedClassifierCV
+from sklearn.metrics import roc_auc_score, precision_recall_curve, f1_score
+from sklearn.preprocessing import StandardScaler
+import xgboost as xgb
+import tensorflow as tf
+from tensorflow.keras.models import Model, Sequential, load_model
+from tensorflow.keras.layers import Dense, Dropout, BatchNormalization, Input
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
+
+# Explainability
+import shap
+from lime import lime_tabular
+
+# Local imports
+from ..utils.logger import get_logger
+from ..config.model_config import (
+    RANDOM_FOREST_PARAMS,
+    XGBOOST_PARAMS,
+    NEURAL_NETWORK_PARAMS,
+    AUTOENCODER_PARAMS,
+    META_MODEL_PARAMS
+)
+
+logger = get_logger(__name__)
+
 
 class FraudDetectionEnsemble:
     """
-    Advanced ensemble model for financial fraud detection.
+    Ensemble model for fraud detection that combines:
+    1. Random Forest
+    2. XGBoost
+    3. Neural Network
+    4. Autoencoder (for anomaly detection)
     
-    Combines Random Forest, XGBoost, Neural Network, and Isolation Forest
-    for high-precision fraud detection with explainability.
+    The predictions from these models are combined using a meta-model (Logistic Regression).
     """
     
-    def __init__(self, config: Dict = None):
+    def __init__(
+        self,
+        random_forest_params: Dict = None,
+        xgboost_params: Dict = None,
+        neural_network_params: Dict = None,
+        autoencoder_params: Dict = None,
+        meta_model_params: Dict = None,
+        models_dir: str = "models",
+        use_calibration: bool = True,
+        threshold: float = 0.5,
+        random_state: int = 42
+    ):
         """
-        Initialize the ensemble model.
+        Initialize the ensemble model with parameters for each base model.
         
         Args:
-            config: Configuration dictionary with model parameters
+            random_forest_params: Parameters for Random Forest model
+            xgboost_params: Parameters for XGBoost model
+            neural_network_params: Parameters for Neural Network model
+            autoencoder_params: Parameters for Autoencoder model
+            meta_model_params: Parameters for meta-model (Logistic Regression)
+            models_dir: Directory to save/load models
+            use_calibration: Whether to calibrate probabilities
+            threshold: Decision threshold for binary classification
+            random_state: Random seed for reproducibility
         """
-        self.config = config or self._get_default_config()
-        self.models = {}
-        self.feature_importance = {}
-        self.explainer = None
-        self.is_trained = False
+        self.models_dir = models_dir
+        self.use_calibration = use_calibration
+        self.threshold = threshold
+        self.random_state = random_state
         
-    def _get_default_config(self) -> Dict:
-        """Get default configuration for the ensemble."""
-        return {
-            'random_forest': {
-                'n_estimators': 500,
-                'max_depth': 20,
-                'min_samples_split': 10,
-                'min_samples_leaf': 5,
-                'max_features': 'sqrt',
-                'bootstrap': True,
-                'oob_score': True,
-                'n_jobs': -1,
-                'random_state': 42,
-                'class_weight': 'balanced'
-            },
-            'xgboost': {
-                'n_estimators': 300,
-                'max_depth': 8,
-                'learning_rate': 0.1,
-                'subsample': 0.8,
-                'colsample_bytree': 0.8,
-                'reg_alpha': 0.1,
-                'reg_lambda': 1.0,
-                'scale_pos_weight': 10,
-                'random_state': 42
-            },
-            'neural_network': {
-                'hidden_layers': [512, 256, 128, 64],
-                'dropout_rates': [0.3, 0.4, 0.3, 0.2],
-                'learning_rate': 0.001,
-                'batch_size': 256,
-                'epochs': 100,
-                'patience': 10
-            },
-            'isolation_forest': {
-                'n_estimators': 200,
-                'contamination': 0.1,
-                'random_state': 42,
-                'n_jobs': -1
-            },
-            'ensemble_weights': {
-                'random_forest': 0.3,
-                'xgboost': 0.35,
-                'neural_network': 0.25,
-                'isolation_forest': 0.1
-            }
-        }
+        # Initialize parameters with defaults if not provided
+        self.rf_params = random_forest_params or RANDOM_FOREST_PARAMS
+        self.xgb_params = xgboost_params or XGBOOST_PARAMS
+        self.nn_params = neural_network_params or NEURAL_NETWORK_PARAMS
+        self.ae_params = autoencoder_params or AUTOENCODER_PARAMS
+        self.meta_params = meta_model_params or META_MODEL_PARAMS
+        
+        # Initialize models
+        self.random_forest = None
+        self.xgboost = None
+        self.neural_network = None
+        self.autoencoder = None
+        self.meta_model = None
+        
+        # Initialize scalers
+        self.feature_scaler = StandardScaler()
+        self.ae_scaler = StandardScaler()
+        
+        # Initialize calibrators
+        self.rf_calibrator = None
+        self.xgb_calibrator = None
+        self.nn_calibrator = None
+        
+        # Initialize explainers
+        self.shap_explainer = None
+        self.lime_explainer = None
+        
+        # Create models directory if it doesn't exist
+        os.makedirs(self.models_dir, exist_ok=True)
+        
+        logger.info("Initialized FraudDetectionEnsemble")
     
-    def train(self, X_train: pd.DataFrame, y_train: pd.Series, 
-              X_val: pd.DataFrame = None, y_val: pd.Series = None) -> Dict:
-        """
-        Train the ensemble model.
-        
-        Args:
-            X_train: Training features
-            y_train: Training labels
-            X_val: Validation features (optional)
-            y_val: Validation labels (optional)
-            
-        Returns:
-            Dictionary with training metrics and results
-        """
-        logger.info("Starting ensemble model training...")
-        
-        results = {}
-        
-        # Train Random Forest
-        logger.info("Training Random Forest...")
-        rf_results = self._train_random_forest(X_train, y_train)
-        results['random_forest'] = rf_results
-        
-        # Train XGBoost with optimization
-        logger.info("Training XGBoost with hyperparameter optimization...")
-        xgb_results = self._train_xgboost_optimized(X_train, y_train)
-        results['xgboost'] = xgb_results
-        
-        # Train Neural Network
-        logger.info("Training Neural Network...")
-        nn_results = self._train_neural_network(X_train, y_train, X_val, y_val)
-        results['neural_network'] = nn_results
-        
-        # Train Isolation Forest
-        logger.info("Training Isolation Forest...")
-        if_results = self._train_isolation_forest(X_train)
-        results['isolation_forest'] = if_results
-        
-        # Initialize SHAP explainer
-        logger.info("Initializing SHAP explainer...")
-        self._initialize_explainer(X_train.sample(min(1000, len(X_train))))
-        
-        self.is_trained = True
-        logger.info("Ensemble training completed successfully!")
-        
-        return results
-    
-    def _train_random_forest(self, X_train: pd.DataFrame, y_train: pd.Series) -> Dict:
-        """Train Random Forest model."""
-        rf = RandomForestClassifier(**self.config['random_forest'])
-        
-        # Cross-validation
-        cv_scores = cross_val_score(
-            rf, X_train, y_train, 
-            cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=42),
-            scoring='f1'
+    def _build_random_forest(self) -> RandomForestClassifier:
+        """Build and return a Random Forest classifier."""
+        logger.info("Building Random Forest model")
+        return RandomForestClassifier(
+            n_estimators=self.rf_params.get('n_estimators', 500),
+            max_depth=self.rf_params.get('max_depth', 15),
+            min_samples_leaf=self.rf_params.get('min_samples_leaf', 5),
+            class_weight=self.rf_params.get('class_weight', 'balanced'),
+            n_jobs=self.rf_params.get('n_jobs', -1),
+            random_state=self.random_state
         )
-        
-        # Train final model
-        rf.fit(X_train, y_train)
-        self.models['random_forest'] = rf
-        
-        # Feature importance
-        self.feature_importance['random_forest'] = dict(
-            zip(X_train.columns, rf.feature_importances_)
-        )
-        
-        return {
-            'cv_f1_mean': cv_scores.mean(),
-            'cv_f1_std': cv_scores.std(),
-            'oob_score': rf.oob_score_,
-            'feature_importance': self.feature_importance['random_forest']
-        }
     
-    def _train_xgboost_optimized(self, X_train: pd.DataFrame, y_train: pd.Series) -> Dict:
-        """Train XGBoost with Optuna optimization."""
-        
-        def objective(trial):
-            params = {
-                'n_estimators': trial.suggest_int('n_estimators', 100, 500),
-                'max_depth': trial.suggest_int('max_depth', 3, 12),
-                'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3),
-                'subsample': trial.suggest_float('subsample', 0.6, 1.0),
-                'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
-                'reg_alpha': trial.suggest_float('reg_alpha', 0, 10),
-                'reg_lambda': trial.suggest_float('reg_lambda', 0, 10),
-                'scale_pos_weight': trial.suggest_float('scale_pos_weight', 1, 20),
-                'random_state': 42
-            }
-            
-            model = XGBClassifier(**params)
-            cv_scores = cross_val_score(
-                model, X_train, y_train,
-                cv=StratifiedKFold(n_splits=3, shuffle=True, random_state=42),
-                scoring='f1'
-            )
-            return cv_scores.mean()
-        
-        # Optimize hyperparameters
-        study = optuna.create_study(direction='maximize')
-        study.optimize(objective, n_trials=50, show_progress_bar=True)
-        
-        # Train final model with best parameters
-        best_params = study.best_params
-        xgb = XGBClassifier(**best_params)
-        xgb.fit(X_train, y_train)
-        self.models['xgboost'] = xgb
-        
-        # Feature importance
-        self.feature_importance['xgboost'] = dict(
-            zip(X_train.columns, xgb.feature_importances_)
+    def _build_xgboost(self) -> xgb.XGBClassifier:
+        """Build and return an XGBoost classifier."""
+        logger.info("Building XGBoost model")
+        return xgb.XGBClassifier(
+            learning_rate=self.xgb_params.get('learning_rate', 0.01),
+            max_depth=self.xgb_params.get('max_depth', 8),
+            subsample=self.xgb_params.get('subsample', 0.8),
+            colsample_bytree=self.xgb_params.get('colsample_bytree', 0.8),
+            min_child_weight=self.xgb_params.get('min_child_weight', 3),
+            gamma=self.xgb_params.get('gamma', 0.1),
+            reg_alpha=self.xgb_params.get('reg_alpha', 0.1),
+            reg_lambda=self.xgb_params.get('reg_lambda', 1.0),
+            scale_pos_weight=self.xgb_params.get('scale_pos_weight', 10),
+            n_estimators=self.xgb_params.get('n_estimators', 300),
+            n_jobs=self.xgb_params.get('n_jobs', -1),
+            random_state=self.random_state
         )
-        
-        return {
-            'best_params': best_params,
-            'best_cv_score': study.best_value,
-            'feature_importance': self.feature_importance['xgboost']
-        }
     
-    def _train_neural_network(self, X_train: pd.DataFrame, y_train: pd.Series,
-                             X_val: pd.DataFrame = None, y_val: pd.Series = None) -> Dict:
-        """Train Neural Network model."""
-        config = self.config['neural_network']
+    def _build_neural_network(self) -> tf.keras.Model:
+        """Build and return a Neural Network classifier."""
+        logger.info("Building Neural Network model")
+        
+        # Get parameters
+        input_dim = self.nn_params.get('input_dim', 100)
+        hidden_layers = self.nn_params.get('hidden_layers', [128, 64, 32, 16])
+        dropout_rate = self.nn_params.get('dropout_rate', 0.3)
+        learning_rate = self.nn_params.get('learning_rate', 0.001)
+        
+        # Set random seed for TensorFlow
+        tf.random.set_seed(self.random_state)
         
         # Build model
         model = Sequential()
         
         # Input layer
-        model.add(Dense(config['hidden_layers'][0], input_dim=X_train.shape[1]))
+        model.add(Dense(hidden_layers[0], input_dim=input_dim, activation='relu'))
         model.add(BatchNormalization())
-        model.add(tf.keras.layers.Activation('relu'))
-        model.add(Dropout(config['dropout_rates'][0]))
+        model.add(Dropout(dropout_rate))
         
         # Hidden layers
-        for i, (units, dropout) in enumerate(zip(config['hidden_layers'][1:], 
-                                                config['dropout_rates'][1:]), 1):
-            model.add(Dense(units))
+        for units in hidden_layers[1:]:
+            model.add(Dense(units, activation='relu'))
             model.add(BatchNormalization())
-            model.add(tf.keras.layers.Activation('relu'))
-            model.add(Dropout(dropout))
+            model.add(Dropout(dropout_rate))
         
         # Output layer
         model.add(Dense(1, activation='sigmoid'))
         
         # Compile model
-        optimizer = Adam(learning_rate=config['learning_rate'])
         model.compile(
-            optimizer=optimizer,
+            optimizer=Adam(learning_rate=learning_rate),
             loss='binary_crossentropy',
-            metrics=['accuracy', 'precision', 'recall']
+            metrics=['accuracy', tf.keras.metrics.AUC(), tf.keras.metrics.Precision(), tf.keras.metrics.Recall()]
         )
         
-        # Callbacks
+        return model
+    
+    def _build_autoencoder(self) -> tf.keras.Model:
+        """Build and return an Autoencoder for anomaly detection."""
+        logger.info("Building Autoencoder model")
+        
+        # Get parameters
+        input_dim = self.ae_params.get('input_dim', 100)
+        encoding_dim = self.ae_params.get('encoding_dim', 32)
+        hidden_layers = self.ae_params.get('hidden_layers', [64, 32])
+        learning_rate = self.ae_params.get('learning_rate', 0.001)
+        
+        # Set random seed for TensorFlow
+        tf.random.set_seed(self.random_state)
+        
+        # Input layer
+        input_layer = Input(shape=(input_dim,))
+        
+        # Encoder
+        encoded = Dense(hidden_layers[0], activation='relu')(input_layer)
+        encoded = BatchNormalization()(encoded)
+        
+        for units in hidden_layers[1:]:
+            encoded = Dense(units, activation='relu')(encoded)
+            encoded = BatchNormalization()(encoded)
+        
+        # Bottleneck
+        bottleneck = Dense(encoding_dim, activation='relu')(encoded)
+        
+        # Decoder (symmetric to encoder)
+        decoded = Dense(hidden_layers[-1], activation='relu')(bottleneck)
+        decoded = BatchNormalization()(decoded)
+        
+        for units in reversed(hidden_layers[:-1]):
+            decoded = Dense(units, activation='relu')(decoded)
+            decoded = BatchNormalization()(decoded)
+        
+        # Output layer
+        output_layer = Dense(input_dim, activation='linear')(decoded)
+        
+        # Create and compile model
+        autoencoder = Model(inputs=input_layer, outputs=output_layer)
+        autoencoder.compile(
+            optimizer=Adam(learning_rate=learning_rate),
+            loss='mean_squared_error'
+        )
+        
+        return autoencoder
+    
+    def _build_meta_model(self) -> LogisticRegression:
+        """Build and return a meta-model (Logistic Regression)."""
+        logger.info("Building meta-model")
+        return LogisticRegression(
+            C=self.meta_params.get('C', 1.0),
+            class_weight=self.meta_params.get('class_weight', 'balanced'),
+            max_iter=self.meta_params.get('max_iter', 1000),
+            random_state=self.random_state
+        )
+    
+    def fit(
+        self,
+        X_train: pd.DataFrame,
+        y_train: pd.Series,
+        X_val: pd.DataFrame = None,
+        y_val: pd.Series = None,
+        calibration_fold: int = 5,
+        fit_autoencoder_on_negatives_only: bool = True
+    ) -> Dict:
+        """
+        Fit the ensemble model on training data.
+        
+        Args:
+            X_train: Training features
+            y_train: Training labels (0 for legitimate, 1 for fraud)
+            X_val: Validation features (optional)
+            y_val: Validation labels (optional)
+            calibration_fold: Number of folds for probability calibration
+            fit_autoencoder_on_negatives_only: Whether to fit autoencoder only on legitimate transactions
+            
+        Returns:
+            Dictionary with training metrics
+        """
+        logger.info(f"Fitting ensemble model on {len(X_train)} samples")
+        
+        # Scale features
+        X_train_scaled = self.feature_scaler.fit_transform(X_train)
+        if X_val is not None:
+            X_val_scaled = self.feature_scaler.transform(X_val)
+        
+        # Initialize models if not already initialized
+        if self.random_forest is None:
+            self.random_forest = self._build_random_forest()
+        
+        if self.xgboost is None:
+            self.xgboost = self._build_xgboost()
+        
+        if self.neural_network is None:
+            self.nn_params['input_dim'] = X_train.shape[1]
+            self.neural_network = self._build_neural_network()
+        
+        if self.autoencoder is None:
+            self.ae_params['input_dim'] = X_train.shape[1]
+            self.autoencoder = self._build_autoencoder()
+        
+        # Fit Random Forest
+        logger.info("Fitting Random Forest model")
+        self.random_forest.fit(X_train_scaled, y_train)
+        
+        # Fit XGBoost
+        logger.info("Fitting XGBoost model")
+        self.xgboost.fit(
+            X_train_scaled, 
+            y_train,
+            eval_set=[(X_val_scaled, y_val)] if X_val is not None else None,
+            early_stopping_rounds=50 if X_val is not None else None,
+            verbose=False
+        )
+        
+        # Fit Neural Network
+        logger.info("Fitting Neural Network model")
         callbacks = [
-            EarlyStopping(
-                monitor='val_loss' if X_val is not None else 'loss',
-                patience=config['patience'],
-                restore_best_weights=True
-            ),
-            ReduceLROnPlateau(
-                monitor='val_loss' if X_val is not None else 'loss',
-                factor=0.5,
-                patience=5,
-                min_lr=1e-6
+            EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True),
+            ModelCheckpoint(
+                filepath=os.path.join(self.models_dir, 'nn_best_model.h5'),
+                monitor='val_loss',
+                save_best_only=True
             )
         ]
         
-        # Calculate class weights
-        class_weights = {
-            0: len(y_train) / (2 * (y_train == 0).sum()),
-            1: len(y_train) / (2 * (y_train == 1).sum())
-        }
-        
-        # Train model
-        validation_data = (X_val, y_val) if X_val is not None else None
-        history = model.fit(
-            X_train, y_train,
-            validation_data=validation_data,
-            epochs=config['epochs'],
-            batch_size=config['batch_size'],
+        self.neural_network.fit(
+            X_train_scaled,
+            y_train,
+            validation_data=(X_val_scaled, y_val) if X_val is not None else None,
+            epochs=self.nn_params.get('epochs', 100),
+            batch_size=self.nn_params.get('batch_size', 256),
             callbacks=callbacks,
-            class_weight=class_weights,
             verbose=0
         )
         
-        self.models['neural_network'] = model
+        # Load best Neural Network model if validation was used
+        if X_val is not None:
+            best_model_path = os.path.join(self.models_dir, 'nn_best_model.h5')
+            if os.path.exists(best_model_path):
+                self.neural_network = load_model(best_model_path)
         
-        return {
-            'final_loss': history.history['loss'][-1],
-            'final_accuracy': history.history['accuracy'][-1],
-            'training_epochs': len(history.history['loss'])
-        }
+        # Fit Autoencoder (on legitimate transactions only if specified)
+        logger.info("Fitting Autoencoder model")
+        if fit_autoencoder_on_negatives_only:
+            # Get only legitimate transactions (label 0)
+            X_train_legitimate = X_train[y_train == 0]
+            X_train_ae_scaled = self.ae_scaler.fit_transform(X_train_legitimate)
+        else:
+            X_train_ae_scaled = self.ae_scaler.fit_transform(X_train)
+        
+        ae_callbacks = [
+            EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True),
+            ModelCheckpoint(
+                filepath=os.path.join(self.models_dir, 'autoencoder_best_model.h5'),
+                monitor='val_loss',
+                save_best_only=True
+            )
+        ]
+        
+        # Split data for autoencoder validation
+        ae_val_size = int(0.2 * len(X_train_ae_scaled))
+        X_train_ae = X_train_ae_scaled[:-ae_val_size]
+        X_val_ae = X_train_ae_scaled[-ae_val_size:]
+        
+        self.autoencoder.fit(
+            X_train_ae,
+            X_train_ae,  # Autoencoder tries to reconstruct the input
+            validation_data=(X_val_ae, X_val_ae),
+            epochs=self.ae_params.get('epochs', 100),
+            batch_size=self.ae_params.get('batch_size', 256),
+            callbacks=ae_callbacks,
+            verbose=0
+        )
+        
+        # Load best Autoencoder model
+        best_ae_model_path = os.path.join(self.models_dir, 'autoencoder_best_model.h5')
+        if os.path.exists(best_ae_model_path):
+            self.autoencoder = load_model(best_ae_model_path)
+        
+        # Calibrate probabilities if specified
+        if self.use_calibration:
+            logger.info("Calibrating model probabilities")
+            self.rf_calibrator = CalibratedClassifierCV(
+                base_estimator=self.random_forest,
+                cv=calibration_fold,
+                method='isotonic'
+            )
+            self.rf_calibrator.fit(X_train_scaled, y_train)
+            
+            self.xgb_calibrator = CalibratedClassifierCV(
+                base_estimator=self.xgboost,
+                cv=calibration_fold,
+                method='isotonic'
+            )
+            self.xgb_calibrator.fit(X_train_scaled, y_train)
+        
+        # Generate predictions from base models for meta-model training
+        rf_preds = self._get_rf_proba(X_train_scaled)[:, 1].reshape(-1, 1)
+        xgb_preds = self._get_xgb_proba(X_train_scaled)[:, 1].reshape(-1, 1)
+        nn_preds = self._get_nn_proba(X_train_scaled).reshape(-1, 1)
+        
+        # Get autoencoder reconstruction error as anomaly score
+        ae_scores = self._get_autoencoder_scores(X_train).reshape(-1, 1)
+        
+        # Combine predictions for meta-model
+        meta_features = np.hstack([rf_preds, xgb_preds, nn_preds, ae_scores])
+        
+        # Fit meta-model
+        logger.info("Fitting meta-model")
+        if self.meta_model is None:
+            self.meta_model = self._build_meta_model()
+        
+        self.meta_model.fit(meta_features, y_train)
+        
+        # Initialize explainers
+        logger.info("Initializing explainers")
+        self.shap_explainer = shap.TreeExplainer(self.xgboost)
+        
+        self.lime_explainer = lime_tabular.LimeTabularExplainer(
+            training_data=X_train_scaled,
+            feature_names=X_train.columns.tolist(),
+            class_names=["Legitimate", "Fraudulent"],
+            mode="classification",
+            random_state=self.random_state
+        )
+        
+        # Calculate and return training metrics
+        metrics = self._calculate_metrics(X_train, y_train)
+        logger.info(f"Training metrics: {metrics}")
+        
+        return metrics
     
-    def _train_isolation_forest(self, X_train: pd.DataFrame) -> Dict:
-        """Train Isolation Forest for anomaly detection."""
-        iso_forest = IsolationForest(**self.config['isolation_forest'])
-        iso_forest.fit(X_train)
-        self.models['isolation_forest'] = iso_forest
-        
-        # Calculate anomaly scores
-        anomaly_scores = iso_forest.decision_function(X_train)
-        
-        return {
-            'mean_anomaly_score': anomaly_scores.mean(),
-            'std_anomaly_score': anomaly_scores.std()
-        }
+    def _get_rf_proba(self, X_scaled: np.ndarray) -> np.ndarray:
+        """Get calibrated probabilities from Random Forest model."""
+        if self.use_calibration and self.rf_calibrator is not None:
+            return self.rf_calibrator.predict_proba(X_scaled)
+        return self.random_forest.predict_proba(X_scaled)
     
-    def predict(self, X: pd.DataFrame) -> np.ndarray:
+    def _get_xgb_proba(self, X_scaled: np.ndarray) -> np.ndarray:
+        """Get calibrated probabilities from XGBoost model."""
+        if self.use_calibration and self.xgb_calibrator is not None:
+            return self.xgb_calibrator.predict_proba(X_scaled)
+        return self.xgboost.predict_proba(X_scaled)
+    
+    def _get_nn_proba(self, X_scaled: np.ndarray) -> np.ndarray:
+        """Get probabilities from Neural Network model."""
+        return self.neural_network.predict(X_scaled, verbose=0)
+    
+    def _get_autoencoder_scores(self, X: pd.DataFrame) -> np.ndarray:
         """
-        Make ensemble predictions.
+        Get anomaly scores from Autoencoder based on reconstruction error.
+        Higher score means more anomalous (potentially fraudulent).
+        """
+        X_scaled = self.ae_scaler.transform(X)
+        reconstructed = self.autoencoder.predict(X_scaled, verbose=0)
+        # Mean squared error as reconstruction error
+        mse = np.mean(np.power(X_scaled - reconstructed, 2), axis=1)
+        # Min-max scale to [0, 1] range
+        min_val, max_val = np.min(mse), np.max(mse)
+        if max_val > min_val:
+            return (mse - min_val) / (max_val - min_val)
+        return np.zeros_like(mse)
+    
+    def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
+        """
+        Predict fraud probability for input samples.
         
         Args:
-            X: Features for prediction
+            X: Input features
             
         Returns:
             Array of fraud probabilities
         """
-        if not self.is_trained:
-            raise ValueError("Model must be trained before making predictions")
+        # Scale features
+        X_scaled = self.feature_scaler.transform(X)
         
-        predictions = {}
-        weights = self.config['ensemble_weights']
+        # Get predictions from base models
+        rf_preds = self._get_rf_proba(X_scaled)[:, 1].reshape(-1, 1)
+        xgb_preds = self._get_xgb_proba(X_scaled)[:, 1].reshape(-1, 1)
+        nn_preds = self._get_nn_proba(X_scaled).reshape(-1, 1)
+        ae_scores = self._get_autoencoder_scores(X).reshape(-1, 1)
         
-        # Random Forest predictions
-        rf_proba = self.models['random_forest'].predict_proba(X)[:, 1]
-        predictions['random_forest'] = rf_proba
+        # Combine predictions for meta-model
+        meta_features = np.hstack([rf_preds, xgb_preds, nn_preds, ae_scores])
         
-        # XGBoost predictions
-        xgb_proba = self.models['xgboost'].predict_proba(X)[:, 1]
-        predictions['xgboost'] = xgb_proba
-        
-        # Neural Network predictions
-        nn_proba = self.models['neural_network'].predict(X).flatten()
-        predictions['neural_network'] = nn_proba
-        
-        # Isolation Forest predictions (convert to probabilities)
-        iso_scores = self.models['isolation_forest'].decision_function(X)
-        iso_proba = 1 / (1 + np.exp(iso_scores))  # Sigmoid transformation
-        predictions['isolation_forest'] = iso_proba
-        
-        # Weighted ensemble
-        ensemble_proba = (
-            weights['random_forest'] * predictions['random_forest'] +
-            weights['xgboost'] * predictions['xgboost'] +
-            weights['neural_network'] * predictions['neural_network'] +
-            weights['isolation_forest'] * predictions['isolation_forest']
-        )
-        
-        return ensemble_proba
+        # Get meta-model predictions
+        return self.meta_model.predict_proba(meta_features)[:, 1]
     
-    def predict_with_explanation(self, X: pd.DataFrame, 
-                                explain_top_n: int = 10) -> Tuple[np.ndarray, List[Dict]]:
+    def predict(self, X: pd.DataFrame) -> np.ndarray:
         """
-        Make predictions with SHAP explanations.
+        Predict fraud (1) or legitimate (0) for input samples.
         
         Args:
-            X: Features for prediction
-            explain_top_n: Number of top features to explain
+            X: Input features
             
         Returns:
-            Tuple of (predictions, explanations)
+            Array of binary predictions (0 for legitimate, 1 for fraud)
         """
-        predictions = self.predict(X)
-        
-        if self.explainer is None:
-            logger.warning("SHAP explainer not initialized. Returning predictions only.")
-            return predictions, []
-        
-        # Get SHAP values for Random Forest (most interpretable)
-        shap_values = self.explainer.shap_values(X)
-        
-        explanations = []
-        for i, (pred, shap_vals) in enumerate(zip(predictions, shap_values[1])):
-            # Get top contributing features
-            feature_contributions = list(zip(X.columns, shap_vals))
-            feature_contributions.sort(key=lambda x: abs(x[1]), reverse=True)
-            
-            explanation = {
-                'prediction': float(pred),
-                'top_features': [
-                    {'feature': feat, 'contribution': float(contrib)}
-                    for feat, contrib in feature_contributions[:explain_top_n]
-                ]
-            }
-            explanations.append(explanation)
-        
-        return predictions, explanations
+        probas = self.predict_proba(X)
+        return (probas >= self.threshold).astype(int)
     
-    def _initialize_explainer(self, X_sample: pd.DataFrame):
-        """Initialize SHAP explainer with sample data."""
-        try:
-            self.explainer = shap.TreeExplainer(self.models['random_forest'])
-        except Exception as e:
-            logger.warning(f"Failed to initialize SHAP explainer: {e}")
-            self.explainer = None
-    
-    def evaluate(self, X_test: pd.DataFrame, y_test: pd.Series) -> Dict:
+    def predict_with_details(self, X: pd.DataFrame) -> Dict:
         """
-        Evaluate the ensemble model.
+        Predict with detailed information including base model predictions and explanations.
         
         Args:
-            X_test: Test features
-            y_test: Test labels
+            X: Input features
+            
+        Returns:
+            Dictionary with predictions, probabilities, and explanations
+        """
+        # Scale features
+        X_scaled = self.feature_scaler.transform(X)
+        
+        # Get predictions from base models
+        rf_preds = self._get_rf_proba(X_scaled)[:, 1]
+        xgb_preds = self._get_xgb_proba(X_scaled)[:, 1]
+        nn_preds = self._get_nn_proba(X_scaled).flatten()
+        ae_scores = self._get_autoencoder_scores(X)
+        
+        # Combine predictions for meta-model
+        meta_features = np.hstack([
+            rf_preds.reshape(-1, 1),
+            xgb_preds.reshape(-1, 1),
+            nn_preds.reshape(-1, 1),
+            ae_scores.reshape(-1, 1)
+        ])
+        
+        # Get meta-model predictions
+        meta_probas = self.meta_model.predict_proba(meta_features)[:, 1]
+        meta_preds = (meta_probas >= self.threshold).astype(int)
+        
+        # Generate explanations for the first sample
+        if len(X) > 0:
+            # SHAP explanation
+            shap_values = self.shap_explainer.shap_values(X_scaled[0:1])
+            
+            # Get top features and their importance
+            feature_names = X.columns.tolist()
+            feature_importance = np.abs(shap_values[0])
+            top_indices = np.argsort(feature_importance)[-5:]  # Top 5 features
+            top_features = [feature_names[i] for i in top_indices]
+            top_importance = feature_importance[top_indices].tolist()
+            
+            # LIME explanation
+            lime_exp = self.lime_explainer.explain_instance(
+                X_scaled[0],
+                lambda x: self.meta_model.predict_proba(
+                    np.hstack([
+                        self._get_rf_proba(x)[:, 1].reshape(-1, 1),
+                        self._get_xgb_proba(x)[:, 1].reshape(-1, 1),
+                        self._get_nn_proba(x).reshape(-1, 1),
+                        np.zeros((len(x), 1))  # Placeholder for AE scores
+                    ])
+                ),
+                num_features=5
+            )
+            
+            lime_features = [feature[0] for feature in lime_exp.as_list()]
+            lime_importance = [feature[1] for feature in lime_exp.as_list()]
+            
+            explanation = {
+                "shap": {
+                    "features": top_features,
+                    "importance": top_importance
+                },
+                "lime": {
+                    "features": lime_features,
+                    "importance": lime_importance
+                }
+            }
+        else:
+            explanation = {}
+        
+        return {
+            "predictions": meta_preds.tolist(),
+            "probabilities": meta_probas.tolist(),
+            "base_models": {
+                "random_forest": rf_preds.tolist(),
+                "xgboost": xgb_preds.tolist(),
+                "neural_network": nn_preds.tolist(),
+                "autoencoder": ae_scores.tolist()
+            },
+            "explanation": explanation
+        }
+    
+    def _calculate_metrics(self, X: pd.DataFrame, y: pd.Series) -> Dict:
+        """Calculate performance metrics on the given data."""
+        y_pred = self.predict(X)
+        y_proba = self.predict_proba(X)
+        
+        # Calculate AUC-ROC
+        auc_roc = roc_auc_score(y, y_proba)
+        
+        # Calculate F1 score
+        f1 = f1_score(y, y_pred)
+        
+        # Calculate precision and recall at threshold
+        precision, recall, thresholds = precision_recall_curve(y, y_proba)
+        threshold_idx = np.argmin(np.abs(thresholds - self.threshold)) if len(thresholds) > 0 else 0
+        precision_at_threshold = precision[threshold_idx] if threshold_idx < len(precision) else precision[-1]
+        recall_at_threshold = recall[threshold_idx] if threshold_idx < len(recall) else recall[-1]
+        
+        return {
+            "auc_roc": auc_roc,
+            "f1_score": f1,
+            "precision": precision_at_threshold,
+            "recall": recall_at_threshold,
+            "threshold": self.threshold
+        }
+    
+    def evaluate(self, X: pd.DataFrame, y: pd.Series) -> Dict:
+        """
+        Evaluate the model on test data.
+        
+        Args:
+            X: Test features
+            y: Test labels
             
         Returns:
             Dictionary with evaluation metrics
         """
-        predictions = self.predict(X_test)
-        binary_predictions = (predictions > 0.5).astype(int)
-        
-        # Calculate metrics
-        auc_score = roc_auc_score(y_test, predictions)
-        classification_rep = classification_report(y_test, binary_predictions, output_dict=True)
-        conf_matrix = confusion_matrix(y_test, binary_predictions)
-        
-        return {
-            'auc_score': auc_score,
-            'classification_report': classification_rep,
-            'confusion_matrix': conf_matrix.tolist(),
-            'precision': classification_rep['1']['precision'],
-            'recall': classification_rep['1']['recall'],
-            'f1_score': classification_rep['1']['f1-score']
-        }
+        logger.info(f"Evaluating model on {len(X)} samples")
+        metrics = self._calculate_metrics(X, y)
+        logger.info(f"Evaluation metrics: {metrics}")
+        return metrics
     
-    def save_model(self, filepath: str):
-        """Save the trained ensemble model."""
-        if not self.is_trained:
-            raise ValueError("Model must be trained before saving")
+    def save(self, path: str = None) -> None:
+        """
+        Save the ensemble model to disk.
         
-        model_data = {
-            'models': self.models,
-            'config': self.config,
-            'feature_importance': self.feature_importance,
-            'is_trained': self.is_trained,
-            'timestamp': datetime.now().isoformat()
+        Args:
+            path: Directory to save the model (defaults to self.models_dir)
+        """
+        if path is None:
+            path = self.models_dir
+        
+        os.makedirs(path, exist_ok=True)
+        
+        # Save individual models
+        with open(os.path.join(path, 'random_forest.pkl'), 'wb') as f:
+            pickle.dump(self.random_forest, f)
+        
+        with open(os.path.join(path, 'xgboost.pkl'), 'wb') as f:
+            pickle.dump(self.xgboost, f)
+        
+        self.neural_network.save(os.path.join(path, 'neural_network.h5'))
+        self.autoencoder.save(os.path.join(path, 'autoencoder.h5'))
+        
+        with open(os.path.join(path, 'meta_model.pkl'), 'wb') as f:
+            pickle.dump(self.meta_model, f)
+        
+        # Save calibrators if they exist
+        if self.rf_calibrator is not None:
+            with open(os.path.join(path, 'rf_calibrator.pkl'), 'wb') as f:
+                pickle.dump(self.rf_calibrator, f)
+        
+        if self.xgb_calibrator is not None:
+            with open(os.path.join(path, 'xgb_calibrator.pkl'), 'wb') as f:
+                pickle.dump(self.xgb_calibrator, f)
+        
+        # Save scalers
+        with open(os.path.join(path, 'feature_scaler.pkl'), 'wb') as f:
+            pickle.dump(self.feature_scaler, f)
+        
+        with open(os.path.join(path, 'ae_scaler.pkl'), 'wb') as f:
+            pickle.dump(self.ae_scaler, f)
+        
+        # Save configuration
+        config = {
+            'rf_params': self.rf_params,
+            'xgb_params': self.xgb_params,
+            'nn_params': self.nn_params,
+            'ae_params': self.ae_params,
+            'meta_params': self.meta_params,
+            'use_calibration': self.use_calibration,
+            'threshold': self.threshold,
+            'random_state': self.random_state
         }
         
-        joblib.dump(model_data, filepath)
-        logger.info(f"Model saved to {filepath}")
+        with open(os.path.join(path, 'config.pkl'), 'wb') as f:
+            pickle.dump(config, f)
+        
+        logger.info(f"Model saved to {path}")
     
     @classmethod
-    def load_model(cls, filepath: str):
-        """Load a trained ensemble model."""
-        model_data = joblib.load(filepath)
+    def load(cls, path: str) -> 'FraudDetectionEnsemble':
+        """
+        Load the ensemble model from disk.
         
-        instance = cls(model_data['config'])
-        instance.models = model_data['models']
-        instance.feature_importance = model_data['feature_importance']
-        instance.is_trained = model_data['is_trained']
+        Args:
+            path: Directory to load the model from
+            
+        Returns:
+            Loaded FraudDetectionEnsemble instance
+        """
+        # Load configuration
+        with open(os.path.join(path, 'config.pkl'), 'rb') as f:
+            config = pickle.load(f)
         
-        logger.info(f"Model loaded from {filepath}")
+        # Create instance with loaded configuration
+        instance = cls(
+            random_forest_params=config['rf_params'],
+            xgboost_params=config['xgb_params'],
+            neural_network_params=config['nn_params'],
+            autoencoder_params=config['ae_params'],
+            meta_model_params=config['meta_params'],
+            models_dir=path,
+            use_calibration=config['use_calibration'],
+            threshold=config['threshold'],
+            random_state=config['random_state']
+        )
+        
+        # Load individual models
+        with open(os.path.join(path, 'random_forest.pkl'), 'rb') as f:
+            instance.random_forest = pickle.load(f)
+        
+        with open(os.path.join(path, 'xgboost.pkl'), 'rb') as f:
+            instance.xgboost = pickle.load(f)
+        
+        instance.neural_network = load_model(os.path.join(path, 'neural_network.h5'))
+        instance.autoencoder = load_model(os.path.join(path, 'autoencoder.h5'))
+        
+        with open(os.path.join(path, 'meta_model.pkl'), 'rb') as f:
+            instance.meta_model = pickle.load(f)
+        
+        # Load calibrators if they exist
+        rf_calibrator_path = os.path.join(path, 'rf_calibrator.pkl')
+        if os.path.exists(rf_calibrator_path):
+            with open(rf_calibrator_path, 'rb') as f:
+                instance.rf_calibrator = pickle.load(f)
+        
+        xgb_calibrator_path = os.path.join(path, 'xgb_calibrator.pkl')
+        if os.path.exists(xgb_calibrator_path):
+            with open(xgb_calibrator_path, 'rb') as f:
+                instance.xgb_calibrator = pickle.load(f)
+        
+        # Load scalers
+        with open(os.path.join(path, 'feature_scaler.pkl'), 'rb') as f:
+            instance.feature_scaler = pickle.load(f)
+        
+        with open(os.path.join(path, 'ae_scaler.pkl'), 'rb') as f:
+            instance.ae_scaler = pickle.load(f)
+        
+        # Initialize explainers
+        instance.shap_explainer = shap.TreeExplainer(instance.xgboost)
+        
+        logger.info(f"Model loaded from {path}")
         return instance
 
-# Example usage
+
 if __name__ == "__main__":
-    # This would typically be replaced with real data loading
-    from sklearn.datasets import make_classification
+    # Example usage
+    import pandas as pd
+    from sklearn.model_selection import train_test_split
     
-    # Generate synthetic fraud detection dataset
+    # Load sample data (replace with actual data loading)
+    # data = pd.read_csv("data/processed/transactions.csv")
+    # X = data.drop("is_fraud", axis=1)
+    # y = data["is_fraud"]
+    
+    # For demonstration, create synthetic data
+    from sklearn.datasets import make_classification
     X, y = make_classification(
         n_samples=10000,
-        n_features=50,
-        n_informative=30,
-        n_redundant=10,
-        n_clusters_per_class=1,
-        weights=[0.95, 0.05],  # Imbalanced dataset (5% fraud)
+        n_features=20,
+        n_informative=10,
+        n_redundant=5,
+        n_classes=2,
+        weights=[0.99, 0.01],  # Imbalanced dataset
         random_state=42
     )
-    
-    # Convert to DataFrame
-    feature_names = [f'feature_{i}' for i in range(X.shape[1])]
-    X_df = pd.DataFrame(X, columns=feature_names)
-    y_series = pd.Series(y)
+    X = pd.DataFrame(X, columns=[f"feature_{i}" for i in range(X.shape[1])])
+    y = pd.Series(y)
     
     # Split data
-    from sklearn.model_selection import train_test_split
     X_train, X_test, y_train, y_test = train_test_split(
-        X_df, y_series, test_size=0.2, stratify=y_series, random_state=42
-    )
-    X_train, X_val, y_train, y_val = train_test_split(
-        X_train, y_train, test_size=0.2, stratify=y_train, random_state=42
+        X, y, test_size=0.2, random_state=42, stratify=y
     )
     
-    # Initialize and train ensemble
-    ensemble = FraudDetectionEnsemble()
-    training_results = ensemble.train(X_train, y_train, X_val, y_val)
+    # Initialize and train model
+    model = FraudDetectionEnsemble(random_state=42)
+    model.fit(X_train, y_train)
     
     # Evaluate model
-    evaluation_results = ensemble.evaluate(X_test, y_test)
+    metrics = model.evaluate(X_test, y_test)
+    print(f"Test metrics: {metrics}")
     
-    print("Training Results:")
-    for model_name, results in training_results.items():
-        print(f"{model_name}: {results}")
-    
-    print("\nEvaluation Results:")
-    print(f"AUC Score: {evaluation_results['auc_score']:.4f}")
-    print(f"Precision: {evaluation_results['precision']:.4f}")
-    print(f"Recall: {evaluation_results['recall']:.4f}")
-    print(f"F1 Score: {evaluation_results['f1_score']:.4f}")
+    # Make predictions
+    sample = X_test.iloc[:5]
+    predictions = model.predict_with_details(sample)
+    print(f"Predictions: {predictions}")
     
     # Save model
-    ensemble.save_model('fraud_detection_ensemble.pkl')
+    model.save("models/ensemble_model")
+    
+    # Load model
+    loaded_model = FraudDetectionEnsemble.load("models/ensemble_model")
+    
+    # Verify loaded model
+    loaded_metrics = loaded_model.evaluate(X_test, y_test)
+    print(f"Loaded model metrics: {loaded_metrics}")
 
