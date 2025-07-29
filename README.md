@@ -1008,3 +1008,18 @@ MIT License - veja o arquivo [LICENSE](LICENSE) para detalhes | see [LICENSE](LI
 
 </div>
 
+
+
+## 📋 Descrição
+
+Descreva aqui o conteúdo desta seção.
+
+
+## 📦 Instalação
+
+Descreva aqui o conteúdo desta seção.
+
+
+## 💻 Uso
+
+Descreva aqui o conteúdo desta seção.
