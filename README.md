@@ -1,130 +1,266 @@
 # AI Financial Fraud Detection System
 
 <!-- Badges -->
-[![Build](https://img.shields.io/github/actions/workflow/status/galafis/ai-financial-fraud-detection/ci.yml?label=build)](../../actions)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/galafis/ai-financial-fraud-detection/ci.yml?label=build)](../../actions)
 [![Tests](https://img.shields.io/github/actions/workflow/status/galafis/ai-financial-fraud-detection/tests.yml?label=tests)](../../actions)
-[![Coverage](https://img.shields.io/badge/coverage-90%25-brightgreen)](#)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Coverage](https://img.shields.io/badge/coverage-90%25-brightgreen)](https://codecov.io/gh/galafis/ai-financial-fraud-detection)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/)
 [![Stars](https://img.shields.io/github/stars/galafis/ai-financial-fraud-detection?style=social)](../../stargazers)
+[![Forks](https://img.shields.io/github/forks/galafis/ai-financial-fraud-detection?style=social)](../../network/members)
+[![Watchers](https://img.shields.io/github/watchers/galafis/ai-financial-fraud-detection?style=social)](../../watchers)
+[![Issues](https://img.shields.io/github/issues/galafis/ai-financial-fraud-detection)](../../issues)
 [![Contributors](https://img.shields.io/github/contributors/galafis/ai-financial-fraud-detection)](../../graphs/contributors)
-[![Last commit](https://img.shields.io/github/last-commit/galafis/ai-financial-fraud-detection)](../../commits)
 
-Advanced real-time financial fraud detection using ML/DL and streaming. Portuguese below.
+> **⭐ If this project helps you, please give it a star and share it with your network! Your support helps the community grow.**
 
-- Demo: https://github.com/galafis/ai-financial-fraud-detection#demo
-- Notebooks: ./notebooks (EDA, feature engineering, model training)
-- Screenshots: see UI and Grafana dashboards below
+Advanced real-time fraud detection system using Machine Learning, Deep Learning, and streaming architecture with comprehensive monitoring and MLOps practices.
 
-## Overview
-Enterprise-grade system combining multiple AI techniques to detect suspicious transactions in real time with high precision and low latency.
+## 🖼️ Screenshots & Demo
 
-### Key Features
-- Ensemble: Random Forest, XGBoost, Neural Nets, Isolation Forest
-- Real-time streaming: Apache Kafka + Spark Structured Streaming
-- Deep learning: Autoencoders for anomaly detection
-- Feature engineering: 200+ engineered features
-- MLOps: MLflow, CI/CD, automated retraining, drift monitoring
-- Observability: Prometheus + Grafana dashboards
+### Visual Gallery
+- **FastAPI Documentation**: `docs/images/fastapi.png` - Interactive API documentation interface
+- **Grafana Dashboard**: `docs/images/grafana_dashboard.png` - Real-time monitoring and metrics
+- **Model Performance**: Share your production screenshots! [Open an issue](../../issues/new) to contribute
 
-### Performance Metrics
-- Precision: >99%
-- Recall: >95% on fraudulent transactions
-- Latency: <100 ms end-to-end
-- False positives reduced by ~80%
+*📸 Community Contribution: We'd love to see your implementation! Share screenshots of your dashboards, results, or custom modifications.*
 
-## Quick Start
-### Prerequisites
-- Python 3.9+
-- Docker & Docker Compose
-- Apache Kafka (or Docker compose services)
+## 🚀 Quick Demo
 
-### Install
+### API Usage Example
+
 ```bash
-git clone https://github.com/galafis/ai-financial-fraud-detection.git
-cd ai-financial-fraud-detection
-python -m venv venv
-source venv/bin/activate   # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-### Run with Docker
-```bash
+# Start the system
 docker-compose up -d
-```
 
-### Test the API
-```bash
-curl -X POST "http://localhost:8000/api/v1/detect" \
+# Test fraud detection endpoint
+curl -X POST "http://localhost:8000/predict" \
   -H "Content-Type: application/json" \
   -d '{
+    "transaction_id": "txn_12345",
     "amount": 1500.00,
-    "merchant": "Online Store",
-    "location": "Sao Paulo",
-    "time": "2024-01-15T14:30:00"
+    "merchant_category": "electronics",
+    "user_id": "user_789",
+    "timestamp": "2024-01-15T10:30:00Z"
   }'
 ```
 
-## Demo and Screenshots
-- Live Demo (local): http://localhost:8000/docs
-- Grafana Dashboard: http://localhost:3000 (after docker-compose up)
+**Python Example:**
+```python
+import requests
 
-Screenshots:
-- API docs (FastAPI): docs/images/fastapi.png
-- Grafana metrics: docs/images/grafana_dashboard.png
+# Fraud detection request
+response = requests.post(
+    "http://localhost:8000/predict",
+    json={
+        "transaction_id": "txn_12345",
+        "amount": 1500.00,
+        "merchant_category": "electronics",
+        "user_id": "user_789",
+        "timestamp": "2024-01-15T10:30:00Z"
+    }
+)
 
-## Implemented Models
-- Supervised: RandomForest, XGBoost, Neural Networks
-- Unsupervised: Isolation Forest, Autoencoders, Clustering
-- Ensembles: Voting, Stacking, Dynamic weighting
-
-## Real-time Streaming Architecture
-Kafka consumer receives transactions -> real-time feature engineering -> ensemble prediction -> SHAP explanations -> alert/approve action
-
-## Monitoring & MLOps
-- Metrics: Precision, Recall, F1, AUC-ROC, latency, throughput, drift
-- Alerts: performance drop, latency spikes, data drift, pipeline failures
-
-## Configuration
-- Model config: config/model_config.py
-- Decision thresholds: config/thresholds.py
-
-## Testing
-```bash
-pytest tests/unit/
-pytest tests/integration/
-pytest tests/performance/
+result = response.json()
+print(f"Fraud Score: {result['fraud_score']}")
+print(f"Decision: {result['decision']}")
+print(f"Explanation: {result['shap_explanation']}")
 ```
 
-## Contributing
-Contributions are welcome! Please:
-1) Fork this repo
-2) Create feature branch: git checkout -b feature/your-feature
-3) Commit: git commit -m "feat: your change"
-4) Push: git push origin feature/your-feature
-5) Open a Pull Request
+**Expected Response:**
+```json
+{
+  "transaction_id": "txn_12345",
+  "fraud_score": 0.23,
+  "decision": "approve",
+  "confidence": 0.89,
+  "shap_explanation": {
+    "top_features": [
+      {"feature": "amount_zscore", "impact": -0.15},
+      {"feature": "merchant_risk", "impact": 0.08}
+    ]
+  },
+  "processing_time_ms": 45
+}
+```
 
-If you like the project, please star it and share. Issues and ideas are very welcome!
+## 🤖 Implemented Models
 
-## License
-MIT License. See LICENSE.
+- **Supervised Learning**: RandomForest, XGBoost, Neural Networks
+- **Unsupervised Learning**: Isolation Forest, Autoencoders, Clustering
+- **Ensemble Methods**: Voting, Stacking, Dynamic weighting
+- **Explainability**: SHAP values for model interpretability
+
+## 🏗️ Real-time Streaming Architecture
+
+```
+Kafka Consumer → Feature Engineering → Ensemble Prediction → SHAP Explanations → Decision Engine
+     ↓                    ↓                     ↓                    ↓                ↓
+Transaction Stream   Real-time Features    Fraud Scores      Interpretability   Alert/Approve
+```
+
+## 📊 Monitoring & MLOps
+
+### Key Metrics
+- **Model Performance**: Precision, Recall, F1-Score, AUC-ROC
+- **System Performance**: Latency, Throughput, Error rates
+- **Data Quality**: Drift detection, Feature distribution monitoring
+
+### Automated Alerts
+- Performance degradation detection
+- Latency spike notifications  
+- Data drift warnings
+- Pipeline failure alerts
+
+## ⚙️ Configuration
+
+- **Model Configuration**: `config/model_config.py`
+- **Decision Thresholds**: `config/thresholds.py`
+- **Environment Settings**: `.env.example`
+
+## 🧪 Testing
+
+```bash
+# Unit tests
+pytest tests/unit/
+
+# Integration tests  
+pytest tests/integration/
+
+# Performance tests
+pytest tests/performance/
+
+# Full test suite with coverage
+pytest --cov=src tests/
+```
+
+## 🤝 How to Contribute
+
+We welcome contributions from the community! Here's how to get started:
+
+### Quick Start for Contributors
+
+1. **Fork the Repository**
+   ```bash
+   # Click the 'Fork' button at the top of this page
+   ```
+
+2. **Clone Your Fork**
+   ```bash
+   git clone https://github.com/YOUR_USERNAME/ai-financial-fraud-detection.git
+   cd ai-financial-fraud-detection
+   ```
+
+3. **Create a Feature Branch**
+   ```bash
+   git checkout -b feature/your-awesome-feature
+   # or for bug fixes:
+   git checkout -b fix/issue-description
+   ```
+
+4. **Make Your Changes**
+   - Write clean, documented code
+   - Add tests for new features
+   - Update documentation as needed
+
+5. **Test Your Changes**
+   ```bash
+   pytest tests/
+   pre-commit run --all-files  # Code formatting & linting
+   ```
+
+6. **Commit Your Changes**
+   ```bash
+   git add .
+   git commit -m "feat: add awesome new feature"
+   # Use conventional commits: feat:, fix:, docs:, test:, refactor:
+   ```
+
+7. **Push and Create Pull Request**
+   ```bash
+   git push origin feature/your-awesome-feature
+   # Then open a Pull Request on GitHub
+   ```
+
+### What We're Looking For
+- 🐛 Bug fixes
+- ✨ New ML models or features
+- 📚 Documentation improvements
+- 🧪 Additional tests
+- 🔧 Performance optimizations
+- 📊 New monitoring capabilities
+
+### Code Style
+- Follow PEP 8 guidelines
+- Use type hints
+- Write docstrings for functions
+- Add unit tests for new code
+
+---
+
+## 📄 License
+
+MIT License. See [LICENSE](LICENSE) for details.
 
 ---
 
 # 🇧🇷 Sistema de Detecção de Fraudes Financeiras com IA
 
-<!-- Badges (pt-BR can reuse) -->
+<!-- Badges em Português -->
 [![Build](https://img.shields.io/github/actions/workflow/status/galafis/ai-financial-fraud-detection/ci.yml?label=build)](../../actions)
-[![Tests](https://img.shields.io/github/actions/workflow/status/galafis/ai-financial-fraud-detection/tests.yml?label=tests)](../../actions)
-[![Coverage](https://img.shields.io/badge/cobertura-90%25-brightgreen)](#)
-[![License: MIT](https://img.shields.io/badge/licenca-MIT-blue.svg)](LICENSE)
+[![Testes](https://img.shields.io/github/actions/workflow/status/galafis/ai-financial-fraud-detection/tests.yml?label=testes)](../../actions)
+[![Cobertura](https://img.shields.io/badge/cobertura-90%25-brightgreen)](https://codecov.io/gh/galafis/ai-financial-fraud-detection)
+[![Licença: MIT](https://img.shields.io/badge/licenca-MIT-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/)
 [![Stars](https://img.shields.io/github/stars/galafis/ai-financial-fraud-detection?style=social)](../../stargazers)
+[![Forks](https://img.shields.io/github/forks/galafis/ai-financial-fraud-detection?style=social)](../../network/members)
+[![Watchers](https://img.shields.io/github/watchers/galafis/ai-financial-fraud-detection?style=social)](../../watchers)
+[![Issues](https://img.shields.io/github/issues/galafis/ai-financial-fraud-detection)](../../issues)
 [![Contribuidores](https://img.shields.io/github/contributors/galafis/ai-financial-fraud-detection)](../../graphs/contributors)
 
-Sistema avançado de detecção de fraudes em tempo real usando Machine Learning, Deep Learning e streaming.
+> **⭐ Se este projeto te ajudou, deixe uma estrela e compartilhe! Seu apoio ajuda a comunidade a crescer.**
 
-- Demonstração: http://localhost:8000/docs (após subir o docker)
-- Notebooks: ./notebooks (EDA, features, treinamento)
-- Capturas de tela: ver seção acima
+Sistema avançado de detecção de fraudes em tempo real usando Machine Learning, Deep Learning e arquitetura de streaming com práticas abrangentes de monitoramento e MLOps.
 
-## Convite à Comunidade
-Se este projeto foi útil, deixe uma ⭐, faça um fork, contribua com PRs e abra issues com sugestões! Também estou aberto a colaboração e estudos de caso em produção.
+## 🚀 Demonstração Rápida
+
+```bash
+# Iniciar o sistema
+docker-compose up -d
+
+# Testar endpoint de detecção de fraude
+curl -X POST "http://localhost:8000/predict" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "transaction_id": "txn_12345",
+    "amount": 1500.00,
+    "merchant_category": "electronics",
+    "user_id": "user_789",
+    "timestamp": "2024-01-15T10:30:00Z"
+  }'
+```
+
+- **Demonstração**: http://localhost:8000/docs (após executar docker)
+- **Notebooks**: ./notebooks (EDA, features, treinamento)
+- **Capturas de tela**: ver seção de galeria acima
+
+## 💡 Convite à Comunidade
+
+**🌟 Faça parte desta comunidade!**
+
+Se este projeto foi útil para você:
+- ⭐ **Deixe uma estrela** - isso nos motiva a continuar!
+- 🍴 **Faça um fork** - personalize para suas necessidades
+- 💬 **Abra issues** - compartilhe ideias e sugestões
+- 🤝 **Contribua com PRs** - ajude a melhorar o projeto
+- 📢 **Compartilhe** - espalhe a palavra nas redes sociais
+
+**Estou aberto para:**
+- Colaborações em projetos reais
+- Estudos de caso em produção
+- Consultoria em implementação
+- Workshops e apresentações
+
+---
+
+**✨ Juntos podemos construir uma solução ainda melhor para detecção de fraudes!**
