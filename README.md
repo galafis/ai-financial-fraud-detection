@@ -1,5 +1,8 @@
 # AI Financial Fraud Detection System
 
+![Hero Image](docs/images/hero_image.jpg)
+
+
 <!-- Badges -->
 [![Build Status](https://img.shields.io/github/actions/workflow/status/galafis/ai-financial-fraud-detection/ci.yml?label=build)](../../actions)
 [![Tests](https://img.shields.io/github/actions/workflow/status/galafis/ai-financial-fraud-detection/tests.yml?label=tests)](../../actions)
@@ -16,15 +19,6 @@
 
 Advanced real-time fraud detection system using Machine Learning, Deep Learning, and streaming architecture with comprehensive monitoring and MLOps practices.
 
-## 🖼️ Screenshots & Demo
-
-### Visual Gallery
-- **FastAPI Documentation**: `docs/images/fastapi.png` - Interactive API documentation interface
-- **Grafana Dashboard**: `docs/images/grafana_dashboard.png` - Real-time monitoring and metrics
-- **Model Performance**: Share your production screenshots! [Open an issue](../../issues/new) to contribute
-
-*📸 Community Contribution: We'd love to see your implementation! Share screenshots of your dashboards, results, or custom modifications.*
-
 ## 🚀 Quick Demo
 
 ### API Usage Example
@@ -36,13 +30,15 @@ docker-compose up -d
 # Test fraud detection endpoint
 curl -X POST "http://localhost:8000/predict" \
   -H "Content-Type: application/json" \
-  -d '{
+  -d 
+{
     "transaction_id": "txn_12345",
     "amount": 1500.00,
     "merchant_category": "electronics",
     "user_id": "user_789",
     "timestamp": "2024-01-15T10:30:00Z"
-  }'
+  }
+
 ```
 
 **Python Example:**
@@ -62,9 +58,9 @@ response = requests.post(
 )
 
 result = response.json()
-print(f"Fraud Score: {result['fraud_score']}")
-print(f"Decision: {result['decision']}")
-print(f"Explanation: {result['shap_explanation']}")
+print(f"Fraud Score: {result["fraud_score"]}")
+print(f"Decision: {result["decision"]}")
+print(f"Explanation: {result["shap_explanation"]}")
 ```
 
 **Expected Response:**
@@ -84,6 +80,20 @@ print(f"Explanation: {result['shap_explanation']}")
 }
 ```
 
+### Running the Backtest
+
+To run a historical backtest of the fraud detection system, use the `backtest.py` script:
+
+```bash
+python src/backtest.py --start-date YYYY-MM-DD --end-date YYYY-MM-DD --data-path path/to/your/transactions.csv --model-path path/to/your/model_directory
+```
+
+Example:
+
+```bash
+python src/backtest.py --start-date 2023-01-01 --end-date 2023-01-31 --data-path data/processed/transactions.csv --model-path models/ensemble_model
+```
+
 ## 🤖 Implemented Models
 
 - **Supervised Learning**: RandomForest, XGBoost, Neural Networks
@@ -93,11 +103,8 @@ print(f"Explanation: {result['shap_explanation']}")
 
 ## 🏗️ Real-time Streaming Architecture
 
-```
-Kafka Consumer → Feature Engineering → Ensemble Prediction → SHAP Explanations → Decision Engine
-     ↓                    ↓                     ↓                    ↓                ↓
-Transaction Stream   Real-time Features    Fraud Scores      Interpretability   Alert/Approve
-```
+![Architecture Diagram](docs/images/architecture_diagram.png)
+
 
 ## 📊 Monitoring & MLOps
 
@@ -224,6 +231,8 @@ Sistema avançado de detecção de fraudes em tempo real usando Machine Learning
 
 ## 🚀 Demonstração Rápida
 
+### Uso da API
+
 ```bash
 # Iniciar o sistema
 docker-compose up -d
@@ -231,13 +240,29 @@ docker-compose up -d
 # Testar endpoint de detecção de fraude
 curl -X POST "http://localhost:8000/predict" \
   -H "Content-Type: application/json" \
-  -d '{
+  -d 
+{
     "transaction_id": "txn_12345",
     "amount": 1500.00,
     "merchant_category": "electronics",
     "user_id": "user_789",
     "timestamp": "2024-01-15T10:30:00Z"
-  }'
+  }
+
+```
+
+### Executando o Backtest
+
+Para executar um backtest histórico do sistema de detecção de fraudes, use o script `backtest.py`:
+
+```bash
+python src/backtest.py --start-date AAAA-MM-DD --end-date AAAA-MM-DD --data-path caminho/para/suas/transacoes.csv --model-path caminho/para/seu/diretorio_do_modelo
+```
+
+Exemplo:
+
+```bash
+python src/backtest.py --start-date 2023-01-01 --end-date 2023-01-31 --data-path data/processed/transactions.csv --model-path models/ensemble_model
 ```
 
 - **Demonstração**: http://localhost:8000/docs (após executar docker)
@@ -264,3 +289,4 @@ Se este projeto foi útil para você:
 ---
 
 **✨ Juntos podemos construir uma solução ainda melhor para detecção de fraudes!**
+

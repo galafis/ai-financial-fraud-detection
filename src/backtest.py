@@ -113,7 +113,7 @@ def load_data(path: str, start: datetime, end: datetime) -> pd.DataFrame:
     # Expect columns: timestamp, is_fraud, and feature columns used by the model
     if "timestamp" in df.columns:
         df["timestamp"] = pd.to_datetime(df["timestamp"])  # Parse timestamps
-        df = df[(df["timestamp"] >= start) & (df["timestamp"] <= end)]
+        df = df[(df["timestamp"] >= start) & (df["timestamp"] < end + pd.Timedelta(days=1))]
     else:
         print("Warning: No timestamp column found. Using all available data.")
     
