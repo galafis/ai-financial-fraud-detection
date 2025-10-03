@@ -1,7 +1,7 @@
 # AI Financial Fraud Detection System
 
+<!-- Imagem Hero -->
 ![Hero Image](docs/images/hero_image.jpg)
-
 
 <!-- Badges -->
 [![Build Status](https://img.shields.io/github/actions/workflow/status/galafis/ai-financial-fraud-detection/ci.yml?label=build)](../../actions)
@@ -30,7 +30,7 @@ docker-compose up -d
 # Test fraud detection endpoint
 curl -X POST "http://localhost:8000/predict" \
   -H "Content-Type: application/json" \
-  -d 
+  -d \
 {
     "transaction_id": "txn_12345",
     "amount": 1500.00,
@@ -231,7 +231,7 @@ Sistema avançado de detecção de fraudes em tempo real usando Machine Learning
 
 ## 🚀 Demonstração Rápida
 
-### Uso da API
+### Exemplo de Uso da API
 
 ```bash
 # Iniciar o sistema
@@ -240,7 +240,7 @@ docker-compose up -d
 # Testar endpoint de detecção de fraude
 curl -X POST "http://localhost:8000/predict" \
   -H "Content-Type: application/json" \
-  -d 
+  -d \
 {
     "transaction_id": "txn_12345",
     "amount": 1500.00,
@@ -265,28 +265,123 @@ Exemplo:
 python src/backtest.py --start-date 2023-01-01 --end-date 2023-01-31 --data-path data/processed/transactions.csv --model-path models/ensemble_model
 ```
 
-- **Demonstração**: http://localhost:8000/docs (após executar docker)
-- **Notebooks**: ./notebooks (EDA, features, treinamento)
-- **Capturas de tela**: ver seção de galeria acima
+## 🤖 Modelos Implementados
 
-## 💡 Convite à Comunidade
+- **Aprendizado Supervisionado**: RandomForest, XGBoost, Redes Neurais
+- **Aprendizado Não Supervisionado**: Isolation Forest, Autoencoders, Agrupamento
+- **Métodos de Ensemble**: Votação, Empilhamento, Ponderação Dinâmica
+- **Explicabilidade**: Valores SHAP para interpretabilidade do modelo
 
-**🌟 Faça parte desta comunidade!**
+## 🏗️ Arquitetura de Streaming em Tempo Real
 
-Se este projeto foi útil para você:
-- ⭐ **Deixe uma estrela** - isso nos motiva a continuar!
-- 🍴 **Faça um fork** - personalize para suas necessidades
-- 💬 **Abra issues** - compartilhe ideias e sugestões
-- 🤝 **Contribua com PRs** - ajude a melhorar o projeto
-- 📢 **Compartilhe** - espalhe a palavra nas redes sociais
+![Diagrama de Arquitetura](docs/images/architecture_diagram.png)
 
-**Estou aberto para:**
-- Colaborações em projetos reais
-- Estudos de caso em produção
-- Consultoria em implementação
-- Workshops e apresentações
+
+## 📊 Monitoramento e MLOps
+
+### Métricas Chave
+- **Desempenho do Modelo**: Precisão, Recall, F1-Score, AUC-ROC
+- **Desempenho do Sistema**: Latência, Vazão, Taxas de Erro
+- **Qualidade dos Dados**: Detecção de desvio, Monitoramento de distribuição de características
+
+### Alertas Automatizados
+- Detecção de degradação de desempenho
+- Notificações de pico de latência  
+- Avisos de desvio de dados
+- Alertas de falha de pipeline
+
+## ⚙️ Configuração
+
+- **Configuração do Modelo**: `config/model_config.py`
+- **Limiares de Decisão**: `config/thresholds.py`
+- **Configurações de Ambiente**: `.env.example`
+
+## 🧪 Testes
+
+```bash
+# Testes de Unidade
+pytest tests/unit/
+
+# Testes de Integração  
+pytest tests/integration/
+
+# Testes de Desempenho
+pytest tests/performance/
+
+# Suíte de Testes Completa com Cobertura
+pytest --cov=src tests/
+```
+
+## 🤝 Como Contribuir
+
+Aceitamos contribuições da comunidade! Veja como começar:
+
+### Início Rápido para Contribuidores
+
+1. **Faça um Fork do Repositório**
+   ```bash
+   # Clique no botão 'Fork' no topo desta página
+   ```
+
+2. **Clone Seu Fork**
+   ```bash
+   git clone https://github.com/YOUR_USERNAME/ai-financial-fraud-detection.git
+   cd ai-financial-fraud-detection
+   ```
+
+3. **Crie uma Branch de Funcionalidade**
+   ```bash
+   git checkout -b feature/sua-nova-funcionalidade-incrivel
+   # ou para correções de bugs:
+   git checkout -b fix/descricao-do-problema
+   ```
+
+4. **Faça Suas Alterações**
+   - Escreva código limpo e documentado
+   - Adicione testes para novas funcionalidades
+   - Atualize a documentação conforme necessário
+
+5. **Teste Suas Alterações**
+   ```bash
+   pytest tests/
+   pre-commit run --all-files  # Formatação e linting de código
+   ```
+
+6. **Commit Suas Alterações**
+   ```bash
+   git add .
+   git commit -m "feat: adiciona nova funcionalidade incrível"
+   # Use commits convencionais: feat:, fix:, docs:, test:, refactor:
+   ```
+
+7. **Envie e Crie um Pull Request**
+   ```bash
+   git push origin feature/sua-nova-funcionalidade-incrivel
+   # Em seguida, abra um Pull Request no GitHub
+   ```
+
+### O Que Estamos Procurando
+- 🐛 Correções de bugs
+- ✨ Novos modelos ou funcionalidades de ML
+- 📚 Melhorias na documentação
+- 🧪 Testes adicionais
+- 🔧 Otimizações de desempenho
+- 📊 Novas capacidades de monitoramento
+
+### Estilo de Código
+- Siga as diretrizes da PEP 8
+- Use type hints
+- Escreva docstrings para funções
+- Adicione testes de unidade para novo código
+
+---
+
+## 📄 Licença
+
+Licença MIT. Veja [LICENSE](LICENSE) para detalhes.
 
 ---
 
 **✨ Juntos podemos construir uma solução ainda melhor para detecção de fraudes!**
+
 
