@@ -4,16 +4,9 @@
 ![Hero Image](docs/images/hero_image.jpg)
 
 <!-- Badges -->
-[![Build Status](https://img.shields.io/github/actions/workflow/status/galafis/ai-financial-fraud-detection/ci.yml?label=build)](../../actions)
-[![Tests](https://img.shields.io/github/actions/workflow/status/galafis/ai-financial-fraud-detection/tests.yml?label=tests)](../../actions)
-[![Coverage](https://img.shields.io/badge/coverage-90%25-brightgreen)](https://codecov.io/gh/galafis/ai-financial-fraud-detection)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/)
 [![Stars](https://img.shields.io/github/stars/galafis/ai-financial-fraud-detection?style=social)](../../stargazers)
-[![Forks](https://img.shields.io/github/forks/galafis/ai-financial-fraud-detection?style=social)](../../network/members)
-[![Watchers](https://img.shields.io/github/watchers/galafis/ai-financial-fraud-detection?style=social)](../../watchers)
-[![Issues](https://img.shields.io/github/issues/galafis/ai-financial-fraud-detection)](../../issues)
-[![Contributors](https://img.shields.io/github/contributors/galafis/ai-financial-fraud-detection)](../../graphs/contributors)
 
 > **⭐ If this project helps you, please give it a star and share it with your network! Your support helps the community grow.**
 
@@ -58,9 +51,9 @@ response = requests.post(
 )
 
 result = response.json()
-print(f"Fraud Score: {result["fraud_score"]}")
-print(f"Decision: {result["decision"]}")
-print(f"Explanation: {result["shap_explanation"]}")
+print(f'Fraud Probability: {result["fraud_probability"]}')
+print(f'Is Fraud: {result["is_fraud"]}')
+print(f'Risk Level: {result["risk_level"]}')
 ```
 
 **Expected Response:**

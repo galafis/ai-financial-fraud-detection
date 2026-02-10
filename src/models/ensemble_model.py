@@ -36,8 +36,8 @@ import shap
 from lime import lime_tabular
 
 # Local imports
-from utils.logger import get_logger
-from config.model_config import (
+from ..utils.logger import get_logger
+from ..config.model_config import (
     RANDOM_FOREST_PARAMS,
     XGBOOST_PARAMS,
     NEURAL_NETWORK_PARAMS,

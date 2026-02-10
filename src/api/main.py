@@ -24,8 +24,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field, validator
-import jwt
-from jwt.exceptions import InvalidTokenError
+from jose import jwt, JWTError
 
 # Prometheus metrics
 from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
@@ -248,7 +247,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
         if username is None:
             raise credentials_exception
         token_data = TokenData(username=username)
-    except InvalidTokenError:
+    except JWTError:
         raise credentials_exception
     user = get_user(username=token_data.username)
     if user is None:
@@ -398,10 +397,11 @@ async def predict_fraud(
         categorical_cols = ["payment_method", "merchant_id"]
         df = pd.get_dummies(df, columns=categorical_cols, drop_first=True)
         
-        # Get prediction with details
-        prediction_details = model.predict_with_details(df)
-        fraud_probability = prediction_details["probabilities"][0]
-        is_fraud = prediction_details["predictions"][0] == 1
+        # Get prediction
+        predictions = model.predict(df)
+        probabilities = model.predict_proba(df)
+        fraud_probability = probabilities[0][1] if probabilities.ndim > 1 else probabilities[0]
+        is_fraud = predictions[0] == 1
         
         # Determine risk level
         if fraud_probability < 0.3:

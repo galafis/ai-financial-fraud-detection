@@ -14,7 +14,7 @@ import logging.handlers
 from datetime import datetime
 from typing import Optional
 
-from config.api_config import LOG_LEVEL, LOG_FORMAT, LOG_FILE
+from ..config.api_config import LOG_LEVEL, LOG_FORMAT, LOG_FILE
 
 # Create logs directory if it doesn't exist
 os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
