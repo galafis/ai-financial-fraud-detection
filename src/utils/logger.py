@@ -73,24 +73,26 @@ class TransactionLogger:
         self.logger = logging.getLogger("transaction_logger")
         self.logger.setLevel(logging.INFO)
         
-        # Create file handler
-        handler = logging.handlers.RotatingFileHandler(
-            log_file,
-            maxBytes=104857600,  # 100MB
-            backupCount=20,
-            encoding="utf-8"
-        )
-        
-        # Create formatter
-        formatter = logging.Formatter(
-            "%(asctime)s - %(levelname)s - %(message)s"
-        )
-        
-        # Add formatter to handler
-        handler.setFormatter(formatter)
-        
-        # Add handler to logger
-        self.logger.addHandler(handler)
+        # Avoid adding duplicate handlers on repeated imports
+        if not self.logger.handlers:
+            # Create file handler
+            handler = logging.handlers.RotatingFileHandler(
+                log_file,
+                maxBytes=104857600,  # 100MB
+                backupCount=20,
+                encoding="utf-8"
+            )
+            
+            # Create formatter
+            formatter = logging.Formatter(
+                "%(asctime)s - %(levelname)s - %(message)s"
+            )
+            
+            # Add formatter to handler
+            handler.setFormatter(formatter)
+            
+            # Add handler to logger
+            self.logger.addHandler(handler)
     
     def log_transaction(
         self,

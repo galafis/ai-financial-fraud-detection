@@ -27,7 +27,6 @@ Para garantir um processo de colaboração eficiente e produtivo, por favor, sig
 5.  **Teste suas Alterações**: Antes de submeter, execute os testes para garantir que suas mudanças não introduziram novos problemas:
     ```bash
     pytest tests/
-    pre-commit run --all-files # Para formatação de código e linting
     ```
 
 6.  **Commit suas Alterações**: Faça commits atômicos e use mensagens de commit claras e concisas. Siga a convenção de commits (e.g., `feat: adiciona nova funcionalidade`, `fix: corrige bug de login`, `docs: atualiza readme`).

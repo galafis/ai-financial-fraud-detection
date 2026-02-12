@@ -54,18 +54,3 @@ RATE_LIMIT_WINDOW = 60  # Time window in seconds
 PROMETHEUS_ENABLED = True
 METRICS_ENDPOINT = "/api/v1/metrics"
 
-# Kafka settings for real-time processing
-KAFKA_ENABLED = os.getenv("KAFKA_ENABLED", "false").lower() == "true"
-KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
-KAFKA_TOPIC_TRANSACTIONS = os.getenv("KAFKA_TOPIC_TRANSACTIONS", "transactions")
-KAFKA_TOPIC_PREDICTIONS = os.getenv("KAFKA_TOPIC_PREDICTIONS", "fraud_predictions")
-KAFKA_GROUP_ID = os.getenv("KAFKA_GROUP_ID", "fraud_detection_api")
-
-# Redis settings for caching
-REDIS_ENABLED = os.getenv("REDIS_ENABLED", "false").lower() == "true"
-REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
-REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
-REDIS_DB = int(os.getenv("REDIS_DB", "0"))
-REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", None)
-REDIS_CACHE_TTL = int(os.getenv("REDIS_CACHE_TTL", "3600"))  # Time in seconds
-

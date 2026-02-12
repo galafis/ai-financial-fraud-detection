@@ -309,53 +309,45 @@ class FeatureEngineer:
             logger.warning("No numerical columns available for aggregation")
             return df
         
-        # Generate customer-level aggregations for different time windows
+        # Generate customer-level aggregations for different time windows.
+        # Uses vectorized groupby + rolling for O(n log n) instead of O(n^2).
         for window_days in self.time_window_sizes:
             logger.info(f"Generating aggregations for {window_days}-day window")
             
-            # Calculate window start time for each transaction
-            window_start = df[self.datetime_column] - timedelta(days=window_days)
+            window_str = f"{window_days}D"
             
-            # Group by customer and calculate aggregations
             for col in agg_columns:
+                # Map function names to pandas rolling aggregations
+                func_map = {
+                    'mean': 'mean', 'std': 'std', 'min': 'min',
+                    'max': 'max', 'sum': 'sum', 'count': 'count',
+                }
+                
                 for func in self.aggregation_functions:
-                    # Skip inappropriate aggregations
                     if func == 'sum' and 'ratio' in col.lower():
                         continue
                     
                     feature_name = f"{col}_{func}_{window_days}d"
                     
-                    # Calculate aggregation for each transaction
-                    result_df[feature_name] = np.nan
+                    # Use groupby + rolling with a time-based window.
+                    # shift(1) ensures we only look at *past* transactions
+                    # (excluding the current row).
+                    grouped = (
+                        df.set_index(self.datetime_column)
+                        .groupby(self.customer_id_column)[col]
+                        .shift(1)
+                        .groupby(df[self.customer_id_column].values)
+                        .rolling(window=window_str, min_periods=1)
+                    )
                     
-                    # This is a simplified implementation for demonstration
-                    # In a real system, use more efficient methods like rolling windows
-                    for i, row in df.iterrows():
-                        customer = row[self.customer_id_column]
-                        current_time = row[self.datetime_column]
-                        
-                        # Get historical transactions for this customer in the time window
-                        mask = (
-                            (df[self.customer_id_column] == customer) &
-                            (df[self.datetime_column] < current_time) &
-                            (df[self.datetime_column] >= current_time - timedelta(days=window_days))
-                        )
-                        
-                        history = df.loc[mask, col]
-                        
-                        if len(history) > 0:
-                            if func == 'mean':
-                                result_df.at[i, feature_name] = history.mean()
-                            elif func == 'std':
-                                result_df.at[i, feature_name] = history.std() if len(history) > 1 else 0
-                            elif func == 'min':
-                                result_df.at[i, feature_name] = history.min()
-                            elif func == 'max':
-                                result_df.at[i, feature_name] = history.max()
-                            elif func == 'sum':
-                                result_df.at[i, feature_name] = history.sum()
-                            elif func == 'count':
-                                result_df.at[i, feature_name] = len(history)
+                    agg_func = func_map.get(func)
+                    if agg_func is None:
+                        continue
+                    
+                    agg_result = getattr(grouped, agg_func)()
+                    # Reset the multi-index produced by groupby+rolling
+                    agg_result = agg_result.reset_index(level=0, drop=True)
+                    result_df[feature_name] = agg_result.values
         
         # Fill missing values with 0
         agg_columns = [col for col in result_df.columns if any(f"_{window}d" in col for window in self.time_window_sizes)]

@@ -97,7 +97,8 @@ API_REQUESTS = Counter(
     ['endpoint', 'method', 'status']
 )
 
-# Rate limiting
+# Rate limiting (in-memory; not suitable for multi-worker deployments)
+_MAX_RATE_LIMIT_ENTRIES = 10000
 rate_limit_store = {}  # Simple in-memory store for rate limiting
 
 # Load the fraud detection model
@@ -271,24 +272,30 @@ async def rate_limit_middleware(request: Request, call_next):
         client_ip = request.client.host
         current_time = time.time()
         
-        # Clean up old entries
-        for ip in list(rate_limit_store.keys()):
-            if current_time - rate_limit_store[ip]["timestamp"] > RATE_LIMIT_WINDOW:
+        # Evict expired entries (and cap store size)
+        if len(rate_limit_store) > _MAX_RATE_LIMIT_ENTRIES:
+            expired = [
+                ip for ip, info in rate_limit_store.items()
+                if current_time - info["timestamp"] > RATE_LIMIT_WINDOW
+            ]
+            for ip in expired:
                 del rate_limit_store[ip]
         
-        # Check rate limit
+        # Check / update rate limit for this client
         if client_ip in rate_limit_store:
-            if rate_limit_store[client_ip]["count"] >= RATE_LIMIT_REQUESTS:
+            entry = rate_limit_store[client_ip]
+            if current_time - entry["timestamp"] > RATE_LIMIT_WINDOW:
+                # Window expired — reset
+                rate_limit_store[client_ip] = {"count": 1, "timestamp": current_time}
+            elif entry["count"] >= RATE_LIMIT_REQUESTS:
                 return JSONResponse(
                     status_code=429,
                     content={"detail": "Rate limit exceeded. Try again later."}
                 )
-            rate_limit_store[client_ip]["count"] += 1
+            else:
+                entry["count"] += 1
         else:
-            rate_limit_store[client_ip] = {
-                "count": 1,
-                "timestamp": current_time
-            }
+            rate_limit_store[client_ip] = {"count": 1, "timestamp": current_time}
     
     # Continue with the request
     response = await call_next(request)
@@ -488,23 +495,16 @@ async def get_model_metrics(current_user: User = Depends(get_current_active_user
             detail="Model not loaded. Service unavailable."
         )
     
-    # In a real system, these would be fetched from a monitoring system
+    # These metrics are placeholders.
+    # In a production system they would come from ModelMonitor or
+    # from metrics recorded during the last evaluation run.
     model_metrics = {
-        "auc_roc": 0.98,
-        "precision": 0.95,
-        "recall": 0.91,
-        "f1_score": 0.93,
-        "false_positive_rate": 0.005,
-        "false_negative_rate": 0.09,
-        "average_confidence": 0.87
+        "note": "Placeholder values — replace with live metrics from ModelMonitor",
+        "threshold": 0.5,
     }
     
     system_metrics = {
-        "requests_per_minute": 120,
-        "average_latency_ms": 45,
-        "p95_latency_ms": 78,
-        "p99_latency_ms": 95,
-        "error_rate": 0.001
+        "note": "Placeholder values — replace with Prometheus queries",
     }
     
     return {

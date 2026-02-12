@@ -252,45 +252,28 @@ class DataLoader:
         logger.info(f"Loading data from Kafka topic: {topic}")
         
         try:
-            # Import Kafka library
-            from confluent_kafka import Consumer
+            # Import Kafka library (kafka-python)
+            from kafka import KafkaConsumer as KPConsumer
             
-            # Create consumer
-            consumer_config = {
-                'bootstrap.servers': config.get('bootstrap.servers', 'localhost:9092'),
-                'group.id': config.get('group.id', 'fraud_detection_group'),
-                'auto.offset.reset': 'earliest'
-            }
-            
-            consumer = Consumer(consumer_config)
-            
-            # Subscribe to topic
-            consumer.subscribe([topic])
+            # Create consumer (kafka-python API)
+            consumer = KPConsumer(
+                topic,
+                bootstrap_servers=config.get('bootstrap.servers', 'localhost:9092'),
+                group_id=config.get('group.id', 'fraud_detection_group'),
+                auto_offset_reset='earliest',
+                value_deserializer=lambda m: json.loads(m.decode('utf-8')),
+                consumer_timeout_ms=timeout_ms,
+            )
             
             # Consume messages
             messages = []
-            start_time = datetime.now()
             
-            while len(messages) < max_records:
-                # Check timeout
-                if (datetime.now() - start_time).total_seconds() * 1000 > timeout_ms:
-                    logger.info(f"Timeout reached after consuming {len(messages)} messages")
+            for msg in consumer:
+                if len(messages) >= max_records:
                     break
                 
-                # Poll for message
-                msg = consumer.poll(timeout=1.0)
-                
-                if msg is None:
-                    continue
-                
-                if msg.error():
-                    logger.error(f"Consumer error: {msg.error()}")
-                    continue
-                
-                # Parse message
                 try:
-                    value = json.loads(msg.value().decode('utf-8'))
-                    messages.append(value)
+                    messages.append(msg.value)
                 except Exception as e:
                     logger.error(f"Error parsing message: {str(e)}")
             
@@ -304,8 +287,8 @@ class DataLoader:
             return df
         
         except ImportError:
-            logger.error("confluent_kafka package not installed")
-            raise ImportError("Please install confluent_kafka: pip install confluent-kafka")
+            logger.error("kafka-python package not installed")
+            raise ImportError("Please install kafka-python: pip install kafka-python")
         
         except Exception as e:
             logger.error(f"Error loading data from Kafka: {str(e)}")
@@ -390,18 +373,24 @@ class DataLoader:
         data = data.sort_values('timestamp').reset_index(drop=True)
         
         # Add more features for fraudulent transactions to make them detectable
-        for i, row in data.iterrows():
-            if row['is_fraud'] == 1:
-                # Fraudulent transactions tend to have unusual amounts
-                data.at[i, 'amount'] = np.random.choice([
-                    np.random.uniform(1, 10),  # Very small amount
-                    np.random.uniform(1000, 5000)  # Very large amount
-                ])
-                
-                # Fraudulent transactions often occur at unusual times
-                hour = np.random.randint(0, 24)
-                if hour < 6:  # Night time (midnight to 6 AM)
-                    data.at[i, 'timestamp'] = data.at[i, 'timestamp'].replace(hour=hour)
+        fraud_mask = data['is_fraud'] == 1
+        n_fraud = fraud_mask.sum()
+        
+        if n_fraud > 0:
+            # Fraudulent transactions tend to have unusual amounts
+            fraud_amounts = np.where(
+                np.random.random(n_fraud) < 0.5,
+                np.random.uniform(1, 10, n_fraud),       # Very small
+                np.random.uniform(1000, 5000, n_fraud),   # Very large
+            )
+            data.loc[fraud_mask, 'amount'] = fraud_amounts
+            
+            # Fraudulent transactions often occur at unusual times (night)
+            night_hours = np.random.randint(0, 6, n_fraud)
+            fraud_timestamps = data.loc[fraud_mask, 'timestamp'].apply(
+                lambda ts: ts.replace(hour=0)
+            ) + pd.to_timedelta(night_hours, unit='h')
+            data.loc[fraud_mask, 'timestamp'] = fraud_timestamps
         
         logger.info(f"Generated {n_samples} synthetic transactions ({sum(fraud_labels)} fraudulent)")
         return data

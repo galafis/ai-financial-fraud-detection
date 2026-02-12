@@ -14,11 +14,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # Criar usuário não-root para segurança
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
-# Instalar dependências do sistema necessárias
+# Instalar dependencias do sistema necessarias
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
-    curl \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
@@ -49,7 +48,7 @@ EXPOSE $PORT
 
 # Health check para monitoramento
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:$PORT/api/v1/health || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')" || exit 1
 
 # ENTRYPOINT para executar aplicação FastAPI
 # Usar uvicorn como servidor ASGI para produção
