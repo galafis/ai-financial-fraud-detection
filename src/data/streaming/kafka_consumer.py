@@ -10,8 +10,10 @@ from datetime import datetime
 from kafka import KafkaConsumer
 from kafka.errors import KafkaError
 
-from ...utils.exceptions import DataStreamingError
-from ...config.settings import get_settings
+
+class DataStreamingError(Exception):
+    """Raised when a data streaming operation fails."""
+    pass
 
 
 class TransactionConsumer:
@@ -40,11 +42,11 @@ class TransactionConsumer:
         """
         self.topic = topic
         self.consumer_group = consumer_group
-        self.settings = get_settings()
         
-        # Set default bootstrap servers
+        # Set default bootstrap servers from env or fallback
+        import os
         if bootstrap_servers is None:
-            bootstrap_servers = self.settings.kafka_bootstrap_servers
+            bootstrap_servers = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
             
         # Default Kafka configuration
         default_config = {

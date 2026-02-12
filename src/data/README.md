@@ -1,16 +1,15 @@
-# Dados e Pré-processamento – AI Financial Fraud Detection
+# Data
 
-Diretório responsável pelos scripts de ingestão, pré-processamento, preparação e simulação de dados financeiros para detecção de fraudes.
+Data loading, feature engineering, and streaming components.
 
-## Estrutura e principais arquivos
-- `ingestion.py`: Scripts para ingestão de dados brutos de múltiplas fontes
-- `preprocessing.py`: Rotinas de limpeza, normalização e transformação dos dados
-- `simulation.py`: Gerador de dados sintéticos/anotados para testes
-- `schemas/`: Esquemas de validação e documentação dos formatos de entrada
+## Files
 
-## Orientações
-- Documente como executar scripts de ingestão e pré-processamento, incluindo principais parâmetros.
-- Ao adicionar novas fontes de dados, crie exemplos e atualize o README.
-- Mantenha amostras/simulações desidentificadas quando possível, para demonstração e testes.
+- `data_loader.py` — Utilities for loading and preparing transaction datasets.
+- `feature_engineering.py` — `FeatureEngineer` class for temporal features, aggregations, and transformations.
 
-Atualize este diretório à medida que novos requisitos e fontes de dados surgirem.
+## Sub-directories
+
+| Directory | Contents |
+|---|---|
+| `streaming/` | `kafka_consumer.py` — Kafka consumer for real-time transaction ingestion |
+| `connectors/` | Placeholder — `__init__.py` only |

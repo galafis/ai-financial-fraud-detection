@@ -1,27 +1,15 @@
-# Kubernetes (k8s) – AI Financial Fraud Detection
+# Kubernetes Manifests
 
-Diretório contendo manifests YAML para deploy, gerenciamento e escalabilidade da solução antifraude financeira.
+Basic Kubernetes manifests for deploying the fraud detection API.
 
-## Estrutura e principais arquivos
-- `deployment.yaml`: Deploy da aplicação principal no cluster
-- `service.yaml`: Exposição de pods via service
-- `hpa.yaml`: Autoscaling por uso de CPU/memória
-- `ingress.yaml` (opcional): Roteamento externo seguro
-- `configmap.yaml` e `secret.yaml`: Variáveis/configurações e segredos
+## Files
 
-## Instruções rápidas
+- `deployment.yaml` — Deployment with 2 replicas, liveness/readiness probes on `/api/v1/health`, and resource limits.
+- `service.yaml` — LoadBalancer service exposing port 8000.
+
+## Usage
+
 ```bash
-kubectl apply -f configmap.yaml
-kubectl apply -f secret.yaml
-kubectl apply -f deployment.yaml
-kubectl apply -f service.yaml
-kubectl apply -f hpa.yaml
+kubectl apply -f k8s/deployment.yaml
+kubectl apply -f k8s/service.yaml
 ```
-
-## Boas práticas
-- Não versionar segredos reais
-- Separar manifests por ambiente
-- Usar probes de liveness/readiness
-- Integrar com Prometheus/Grafana quando possível
-
-Consulte a documentação dos diretórios docker/ e monitoring/ para integração DevOps completa.

@@ -1,16 +1,15 @@
-# API REST – AI Financial Fraud Detection
+# API
 
-Este diretório contém a implementação da API REST (FastAPI) responsável por expor endpoints para detecção de fraudes, consultas de resultados e integração com serviços externos.
+FastAPI application for the fraud detection system.
 
-## Principais arquivos
-- `main.py`: Entrada principal da API FastAPI
-- `routes/`: Implementações dos endpoints REST
-- `schemas/`: Schemas Pydantic para validação de dados
-- `dependencies/`: Middlewares e dependências (ex: autenticação, CORS)
+## Files
 
-## Instruções rápidas
-- Para rodar em modo desenvolvimento: `uvicorn src.api.main:app --reload`
-- Os endpoints REST estão documentados em `/docs` (Swagger) ao rodar a API
-- Expanda os módulos conforme novas funcionalidades e integrações forem necessárias.
+- `main.py` — Application entry point. Defines all endpoints (`/api/v1/predict`, `/api/v1/health`, `/api/v1/metrics`, `/api/v1/auth/token`), middleware (rate limiting, request logging), and Pydantic models.
 
-Para dúvidas ou sugestões, consulte o README principal ou abra uma issue no repositório.
+## Running locally
+
+```bash
+uvicorn src.api.main:app --reload
+```
+
+Interactive docs are served at `/docs` (Swagger UI) when the app is running.

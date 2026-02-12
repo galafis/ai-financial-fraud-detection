@@ -26,7 +26,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copiar arquivo de requirements primeiro (para aproveitar cache do Docker)
-COPY requirements.txt .
+COPY config/requirements.txt .
 
 # Instalar dependências Python
 RUN pip install --no-cache-dir --upgrade pip && \
@@ -49,7 +49,7 @@ EXPOSE $PORT
 
 # Health check para monitoramento
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:$PORT/health || exit 1
+    CMD curl -f http://localhost:$PORT/api/v1/health || exit 1
 
 # ENTRYPOINT para executar aplicação FastAPI
 # Usar uvicorn como servidor ASGI para produção

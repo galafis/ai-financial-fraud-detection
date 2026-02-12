@@ -75,7 +75,7 @@ class FeatureEngineer:
         
         self.categorical_encoder = None
         if self.categorical_encoding == 'one-hot':
-            self.categorical_encoder = OneHotEncoder(sparse=False, handle_unknown='ignore')
+            self.categorical_encoder = OneHotEncoder(sparse_output=False, handle_unknown='ignore')
         
         self.feature_selector = None
         

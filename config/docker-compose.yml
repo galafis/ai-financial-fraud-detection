@@ -7,8 +7,8 @@ services:
   # API Principal - FastAPI
   api:
     build:
-      context: .
-      dockerfile: ./docker/Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile
     container_name: fraud-detection-api
     restart: unless-stopped
     ports:
@@ -19,14 +19,14 @@ services:
       - LOG_LEVEL=info
     volumes:
       # Volume opcional para desenvolvimento - permite hot reload
-      - ./src:/app/src
-      - ./models:/app/models  # Para persistir modelos treinados
+      - ../src:/app/src
+      - ../models:/app/models  # Para persistir modelos treinados
     depends_on:
       - redis
     networks:
       - fraud-detection-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
       interval: 30s
       timeout: 10s
       retries: 3

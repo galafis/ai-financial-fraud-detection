@@ -1,16 +1,18 @@
-# Modelos de Machine Learning – AI Financial Fraud Detection
+# Models
 
-Este diretório contém os artefatos, scripts e pipelines relacionados ao desenvolvimento, treinamento, validação e versionamento dos modelos de machine learning e deep learning usados para detecção de fraudes financeiras.
+Machine learning models for fraud detection.
 
-## Estrutura e principais arquivos
-- `trainer.py`: Script para treinamento e validação dos modelos
-- `predictor.py`: Funções de inferência para uso integrado à API
-- `model_registry/`: Diretório para versionamento e armazenamento de modelos treinados
-- `evaluation.py`: Métricas de avaliação e benchmarks comparativos
+## Files
 
-## Orientações
-- Mantenha documentação clara para cada novo modelo adicionado.
-- Para inclusão de novos algoritmos, siga o padrão dos scripts existentes e atualize este README.
-- Siga boas práticas de versionamento e documentação dos modelos treinados.
+- `ensemble_model.py` — `FraudDetectionEnsemble` class that loads and combines predictions from multiple sub-models (Random Forest, XGBoost, neural network, autoencoder, meta-learner).
 
-Consulte o README principal para detalhes de integração entre modelos e as demais camadas do sistema.
+## Sub-directories
+
+| Directory | Status |
+|---|---|
+| `ensemble/` | Placeholder — `__init__.py` only |
+| `supervised/` | Placeholder — `__init__.py` only |
+| `unsupervised/` | Placeholder — `__init__.py` only |
+| `training/` | Placeholder — `__init__.py` only |
+
+Each sub-directory currently contains only an `__init__.py`. The core ensemble logic lives in `ensemble_model.py` at this level.

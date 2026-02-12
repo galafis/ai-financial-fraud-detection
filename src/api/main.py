@@ -177,18 +177,19 @@ class MetricsResponse(BaseModel):
     timestamp: datetime
 
 
-# Authentication functions
+# ---------------------------------------------------------------
+# DEMO-ONLY authentication (not for production use).
+# In production, replace with bcrypt password hashing, a real
+# user database, and proper secret management.
+# ---------------------------------------------------------------
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify password against hashed password."""
-    # In a real system, use proper password hashing (e.g., bcrypt)
-    # This is a simplified example
+    """Verify password (demo only — plaintext comparison)."""
     return plain_password == hashed_password
 
 
 def get_user(username: str) -> Optional[UserInDB]:
-    """Get user from database."""
-    # In a real system, fetch from database
-    # This is a simplified example with hardcoded users
+    """Look up a demo user. Replace with a real user store in production."""
     users_db = {
         "admin": {
             "username": "admin",
@@ -213,7 +214,7 @@ def get_user(username: str) -> Optional[UserInDB]:
 
 
 def authenticate_user(username: str, password: str) -> Union[UserInDB, bool]:
-    """Authenticate user with username and password."""
+    """Authenticate a demo user. Not suitable for production."""
     user = get_user(username)
     if not user:
         return False
@@ -434,7 +435,7 @@ async def predict_fraud(
             "fraud_probability": float(fraud_probability),
             "is_fraud": bool(is_fraud),
             "risk_level": risk_level,
-            "explanation": prediction_details.get("explanation", {}),
+            "explanation": None,
             "processing_time_ms": processing_time_ms
         }
     
