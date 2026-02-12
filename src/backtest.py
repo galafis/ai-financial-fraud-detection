@@ -7,11 +7,11 @@ a historical transactions dataset between a given date range and reports
 key performance metrics for fraud detection.
 
 Usage:
-    python scripts/backtest.py --start-date YYYY-MM-DD --end-date YYYY-MM-DD \
+    python -m src.backtest --start-date YYYY-MM-DD --end-date YYYY-MM-DD \
         --data-path data/processed/transactions.csv --model-path models/ensemble_model
 
 Example:
-    python scripts/backtest.py --start-date 2023-01-01 --end-date 2023-12-31
+    python -m src.backtest --start-date 2023-01-01 --end-date 2023-12-31
 
 Notes:
     - This is a minimal implementation to satisfy README references.
@@ -37,11 +37,10 @@ from sklearn.metrics import (
 
 # Make src importable when running from repo root
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SRC_PATH = os.path.join(REPO_ROOT, "src")
-if SRC_PATH not in sys.path:
-    sys.path.insert(0, SRC_PATH)
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
 
-from models.ensemble_model import FraudDetectionEnsemble  # noqa: E402
+from src.models.ensemble_model import FraudDetectionEnsemble  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:

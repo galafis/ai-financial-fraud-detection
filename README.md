@@ -1,84 +1,250 @@
-# 🤖 Ai Financial Fraud Detection
+# AI Financial Fraud Detection
 
-> AI-powered fraud detection system for financial transactions. Uses ensemble models, anomaly detection, and real-time scoring to identify fraudulent patterns.
+Sistema de deteccao de fraudes financeiras usando modelos de machine learning em ensemble (Random Forest, XGBoost, rede neural e autoencoder).
 
-[![Python](https://img.shields.io/badge/Python-3.12-3776AB.svg)](https://img.shields.io/badge/)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[Portugues](#portugues) | [English](#english)
 
-[English](#english) | [Português](#português)
+---
+
+## Portugues
+
+### Sobre
+
+Este projeto implementa um sistema de deteccao de fraudes em transacoes financeiras. O nucleo e um modelo ensemble que combina quatro algoritmos de machine learning, com um meta-modelo (regressao logistica) para combinar as predicoes.
+
+O projeto inclui:
+
+- **Modelo ensemble** com Random Forest, XGBoost, rede neural (Keras) e autoencoder para deteccao de anomalias
+- **API REST** com FastAPI para servir predicoes em tempo real (com autenticacao JWT)
+- **Feature engineering** com agregacoes temporais por janela deslizante (1, 3, 7, 14, 30 dias)
+- **Monitoramento de modelo** com deteccao de drift e alertas de degradacao
+- **Consumer Kafka** para ingestao de transacoes em streaming
+- **Script de backtest** para avaliacao historica do modelo
+
+### Tecnologias
+
+| Tecnologia | Uso |
+|------------|-----|
+| Python 3.9+ | Linguagem principal |
+| scikit-learn, XGBoost | Modelos supervisionados |
+| TensorFlow/Keras | Rede neural e autoencoder |
+| SHAP, LIME | Explicabilidade de predicoes |
+| FastAPI | API REST |
+| kafka-python | Consumer de streaming |
+| Prometheus | Metricas da API |
+| Docker | Containerizacao |
+
+### Arquitetura
+
+```mermaid
+graph TD
+    A[Dados CSV / Kafka] --> B[DataLoader]
+    B --> C[FeatureEngineer]
+    C --> D[FraudDetectionEnsemble]
+    D --> E{Predicao}
+    E --> F[API /predict]
+    E --> G[Backtest CLI]
+    D --> H[ModelMonitor]
+    H --> I[Alertas de Drift]
+```
+
+### Estrutura do Projeto
+
+```
+ai-financial-fraud-detection/
+├── config/
+│   ├── docker-compose.yml
+│   ├── requirements.txt
+│   └── requirements-dev.txt
+├── docker/
+│   └── Dockerfile
+├── k8s/
+│   ├── deployment.yaml
+│   └── service.yaml
+├── src/
+│   ├── api/
+│   │   └── main.py              # API FastAPI (auth, predict, health, metrics)
+│   ├── config/
+│   │   ├── api_config.py        # Configuracoes da API
+│   │   └── model_config.py      # Hiperparametros dos modelos
+│   ├── data/
+│   │   ├── data_loader.py       # Carga de dados (CSV, SQL, Kafka)
+│   │   ├── feature_engineering.py # Feature engineering com janelas temporais
+│   │   └── streaming/
+│   │       └── kafka_consumer.py # Consumer Kafka
+│   ├── models/
+│   │   └── ensemble_model.py    # Modelo ensemble (RF + XGB + NN + AE + meta)
+│   ├── monitoring/
+│   │   └── model_monitoring.py  # Monitoramento de drift e performance
+│   ├── utils/
+│   │   └── logger.py            # Logging configuravel
+│   └── backtest.py              # Script de backtesting
+├── tests/
+│   ├── unit/
+│   │   ├── test_features.py
+│   │   └── test_ensemble_model.py
+│   ├── integration/
+│   │   ├── test_api.py
+│   │   └── test_data_streaming.py
+│   └── performance/
+│       └── test_latency.py
+├── CONTRIBUTING.md
+├── LICENSE
+└── README.md
+```
+
+### Inicio Rapido
+
+```bash
+# Clonar o repositorio
+git clone https://github.com/galafis/ai-financial-fraud-detection.git
+cd ai-financial-fraud-detection
+
+# Criar e ativar ambiente virtual
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# Instalar dependencias
+pip install -r config/requirements.txt
+
+# Para desenvolvimento (inclui pytest, httpx)
+pip install -r config/requirements-dev.txt
+```
+
+### Execucao
+
+```bash
+# Iniciar a API (requer modelo treinado em models/ensemble/)
+uvicorn src.api.main:app --host 0.0.0.0 --port 8000
+
+# Backtest em dados historicos
+python -m src.backtest --start-date 2024-01-01 --end-date 2024-12-31 \
+    --data-path data/transactions.csv --model-path models/ensemble
+```
+
+### Docker
+
+```bash
+# A partir da raiz do repositorio
+docker compose -f config/docker-compose.yml up --build
+```
+
+### Testes
+
+```bash
+# Testes unitarios e de integracao
+pytest tests/ -v
+
+# Com cobertura
+pytest tests/ --cov=src --cov-report=html
+```
+
+### Notas Importantes
+
+- **Autenticacao**: A API usa usuarios demo com senhas em texto plano (admin/admin_password). Substituir por bcrypt + banco de dados real em producao.
+- **Modelo**: Nenhum modelo pre-treinado e incluso no repositorio. O ensemble deve ser treinado antes de servir predicoes via API.
+- **Kafka**: O consumer Kafka requer um broker Kafka em execucao. O docker-compose nao inclui Kafka por padrao.
+
+### Autor
+
+**Gabriel Demetrios Lafis**
+- GitHub: [@galafis](https://github.com/galafis)
+- LinkedIn: [Gabriel Demetrios Lafis](https://linkedin.com/in/gabriel-demetrios-lafis)
+
+### Licenca
+
+MIT License - veja [LICENSE](LICENSE) para detalhes.
 
 ---
 
 ## English
 
-### 🎯 Overview
+### About
 
-**Ai Financial Fraud Detection** is a production-grade Python application complemented by HTML that showcases modern software engineering practices including clean architecture, comprehensive testing, containerized deployment, and CI/CD readiness.
+This project implements a financial transaction fraud detection system. The core is an ensemble model combining four machine learning algorithms, with a meta-model (logistic regression) to combine predictions.
 
-The codebase comprises **4,681 lines** of source code organized across **31 modules**, following industry best practices for maintainability, scalability, and code quality.
+The project includes:
 
-### ✨ Key Features
+- **Ensemble model** with Random Forest, XGBoost, neural network (Keras), and autoencoder for anomaly detection
+- **REST API** with FastAPI for serving real-time predictions (with JWT authentication)
+- **Feature engineering** with sliding-window temporal aggregations (1, 3, 7, 14, 30 days)
+- **Model monitoring** with drift detection and degradation alerts
+- **Kafka consumer** for streaming transaction ingestion
+- **Backtest script** for historical model evaluation
 
-- **🤖 ML Pipeline**: End-to-end machine learning workflow from data to deployment
-- **🔬 Feature Engineering**: Automated feature extraction and transformation
-- **📊 Model Evaluation**: Comprehensive metrics and cross-validation
-- **🚀 Model Serving**: Production-ready prediction API
-- **🔍 Anomaly Detection**: Multiple detection algorithms with ensemble methods
-- **📊 Real-time Scoring**: Sub-second transaction evaluation
-- **🎯 Adaptive Learning**: Models that improve over time with new data
-- **📈 Alert System**: Configurable thresholds and notification pipelines
+### Technologies
 
-### 🏗️ Architecture
+| Technology | Usage |
+|------------|-------|
+| Python 3.9+ | Primary language |
+| scikit-learn, XGBoost | Supervised models |
+| TensorFlow/Keras | Neural network and autoencoder |
+| SHAP, LIME | Prediction explainability |
+| FastAPI | REST API |
+| kafka-python | Streaming consumer |
+| Prometheus | API metrics |
+| Docker | Containerization |
 
-```mermaid
-graph TB
-    subgraph Core["🏗️ Core"]
-        A[Main Module]
-        B[Business Logic]
-        C[Data Processing]
-    end
-    
-    subgraph Support["🔧 Support"]
-        D[Configuration]
-        E[Utilities]
-        F[Tests]
-    end
-    
-    A --> B --> C
-    D --> A
-    E --> B
-    F -.-> B
-    
-    style Core fill:#e1f5fe
-    style Support fill:#f3e5f5
-```
+### Architecture
 
 ```mermaid
-classDiagram
-    class User
-    class HealthResponse
-    class PredictionResponse
-    class MetricsResponse
-    class Location
-    class FeatureEngineer
-    class Transaction
-    class TransactionLogger
-    class FraudDetectionEnsemble
-    class Token
-    FeatureEngineer --> User : uses
-    FeatureEngineer --> HealthResponse : uses
-    FeatureEngineer --> PredictionResponse : uses
+graph TD
+    A[CSV Data / Kafka] --> B[DataLoader]
+    B --> C[FeatureEngineer]
+    C --> D[FraudDetectionEnsemble]
+    D --> E{Prediction}
+    E --> F[API /predict]
+    E --> G[Backtest CLI]
+    D --> H[ModelMonitor]
+    H --> I[Drift Alerts]
 ```
 
-### 🚀 Quick Start
+### Project Structure
 
-#### Prerequisites
+```
+ai-financial-fraud-detection/
+├── config/
+│   ├── docker-compose.yml
+│   ├── requirements.txt
+│   └── requirements-dev.txt
+├── docker/
+│   └── Dockerfile
+├── k8s/
+│   ├── deployment.yaml
+│   └── service.yaml
+├── src/
+│   ├── api/
+│   │   └── main.py              # FastAPI app (auth, predict, health, metrics)
+│   ├── config/
+│   │   ├── api_config.py        # API configuration
+│   │   └── model_config.py      # Model hyperparameters
+│   ├── data/
+│   │   ├── data_loader.py       # Data loading (CSV, SQL, Kafka)
+│   │   ├── feature_engineering.py # Feature engineering with time windows
+│   │   └── streaming/
+│   │       └── kafka_consumer.py # Kafka consumer
+│   ├── models/
+│   │   └── ensemble_model.py    # Ensemble model (RF + XGB + NN + AE + meta)
+│   ├── monitoring/
+│   │   └── model_monitoring.py  # Drift monitoring and performance tracking
+│   ├── utils/
+│   │   └── logger.py            # Configurable logging
+│   └── backtest.py              # Backtesting script
+├── tests/
+│   ├── unit/
+│   │   ├── test_features.py
+│   │   └── test_ensemble_model.py
+│   ├── integration/
+│   │   ├── test_api.py
+│   │   └── test_data_streaming.py
+│   └── performance/
+│       └── test_latency.py
+├── CONTRIBUTING.md
+├── LICENSE
+└── README.md
+```
 
-- Python 3.12+
-- pip (Python package manager)
-- Docker and Docker Compose (optional)
-
-#### Installation
+### Quick Start
 
 ```bash
 # Clone the repository
@@ -87,435 +253,55 @@ cd ai-financial-fraud-detection
 
 # Create and activate virtual environment
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv/bin/activate  # Windows: venv\Scripts\activate
 
 # Install dependencies
-pip install -r requirements.txt
+pip install -r config/requirements.txt
+
+# For development (includes pytest, httpx)
+pip install -r config/requirements-dev.txt
 ```
 
-#### Running
+### Running
 
 ```bash
-# Run the application
-python src/api/main.py
+# Start the API (requires a trained model in models/ensemble/)
+uvicorn src.api.main:app --host 0.0.0.0 --port 8000
+
+# Backtest on historical data
+python -m src.backtest --start-date 2024-01-01 --end-date 2024-12-31 \
+    --data-path data/transactions.csv --model-path models/ensemble
 ```
 
-### 🐳 Docker
+### Docker
 
 ```bash
-# Start all services
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Stop all services
-docker-compose down
-
-# Rebuild after changes
-docker-compose up -d --build
+# From the repository root
+docker compose -f config/docker-compose.yml up --build
 ```
 
-### 🧪 Testing
+### Tests
 
 ```bash
-# Run all tests
-pytest
+# Unit and integration tests
+pytest tests/ -v
 
-# Run with coverage report
-pytest --cov --cov-report=html
-
-# Run specific test module
-pytest tests/test_main.py -v
-
-# Run with detailed output
-pytest -v --tb=short
+# With coverage
+pytest tests/ --cov=src --cov-report=html
 ```
 
-### 📁 Project Structure
+### Important Notes
 
-```
-ai-financial-fraud-detection/
-├── config/        # Configuration
-│   ├── docker-compose.yml
-│   └── requirements.txt
-├── docker/
-│   ├── Dockerfile
-│   └── README.md
-├── docs/          # Documentation
-│   ├── images/
-│   └── architecture_diagram.md
-├── k8s/
-│   ├── README.md
-│   ├── deployment.yaml
-│   └── service.yaml
-├── notebooks/
-│   └── README.md
-├── src/          # Source code
-│   ├── api/           # API endpoints
-│   │   ├── README.md
-│   │   ├── __init__.py
-│   │   └── main.py
-│   ├── config/        # Configuration
-│   │   ├── README.md
-│   │   ├── __init__.py
-│   │   ├── api_config.py
-│   │   └── model_config.py
-│   ├── data/
-│   │   ├── connectors/
-│   │   ├── streaming/
-│   │   ├── README.md
-│   │   ├── __init__.py
-│   │   ├── data_loader.py
-│   │   └── feature_engineering.py
-│   ├── features/
-│   │   ├── README.md
-│   │   └── __init__.py
-│   ├── inference/
-│   │   ├── README.md
-│   │   └── __init__.py
-│   ├── models/        # Data models
-│   │   ├── ensemble/
-│   │   ├── supervised/
-│   │   ├── training/
-│   │   ├── unsupervised/
-│   │   ├── README.md
-│   │   ├── __init__.py
-│   │   └── ensemble_model.py
-│   ├── monitoring/
-│   │   ├── README.md
-│   │   ├── __init__.py
-│   │   └── model_monitoring.py
-│   ├── utils/         # Utilities
-│   │   ├── README.md
-│   │   ├── __init__.py
-│   │   └── logger.py
-│   ├── README.md
-│   ├── __init__.py
-│   └── backtest.py
-├── tests/         # Test suite
-│   ├── integration/
-│   │   ├── test_api.py
-│   │   └── test_data_streaming.py
-│   ├── performance/
-│   │   ├── README.md
-│   │   └── test_latency.py
-│   ├── unit/
-│   │   ├── test_ensemble_model.py
-│   │   └── test_features.py
-│   └── README.md
-├── CONTRIBUTING.md
-├── LICENSE
-└── README.md
-```
+- **Authentication**: The API uses demo users with plaintext passwords (admin/admin_password). Replace with bcrypt + a real user store in production.
+- **Model**: No pre-trained model is included in the repository. The ensemble must be trained before serving predictions via the API.
+- **Kafka**: The Kafka consumer requires a running Kafka broker. The docker-compose does not include Kafka by default.
 
-### 🔒 Security Considerations
-
-| Feature | Implementation |
-|---------|---------------|
-| **Authentication** | JWT tokens with configurable expiration |
-| **Authorization** | Role-based access control (RBAC) |
-| **Input Validation** | Schema-based validation on all endpoints |
-| **Rate Limiting** | Configurable request throttling |
-| **Data Encryption** | AES-256 for sensitive data at rest |
-| **SQL Injection** | ORM-based queries prevent injection |
-| **CORS** | Configurable CORS policies |
-| **Audit Logging** | Complete request/response audit trail |
-
-> ⚠️ **Production Deployment**: Always configure proper SSL/TLS, rotate secrets regularly, and follow the principle of least privilege.
-
-### 🛠️ Tech Stack
-
-| Technology | Description | Role |
-|------------|-------------|------|
-| **Python** | Core Language | Primary |
-| HTML | 1 files | Supporting |
-
-### 🚀 Deployment
-
-#### Cloud Deployment Options
-
-The application is containerized and ready for deployment on:
-
-| Platform | Service | Notes |
-|----------|---------|-------|
-| **AWS** | ECS, EKS, EC2 | Full container support |
-| **Google Cloud** | Cloud Run, GKE | Serverless option available |
-| **Azure** | Container Instances, AKS | Enterprise integration |
-| **DigitalOcean** | App Platform, Droplets | Cost-effective option |
-
-```bash
-# Production build
-docker build -t ai-financial-fraud-detection:latest .
-
-# Tag for registry
-docker tag ai-financial-fraud-detection:latest registry.example.com/ai-financial-fraud-detection:latest
-
-# Push to registry
-docker push registry.example.com/ai-financial-fraud-detection:latest
-```
-
-### 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
-
-1. Fork the project
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-### 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-### 👤 Author
+### Author
 
 **Gabriel Demetrios Lafis**
 - GitHub: [@galafis](https://github.com/galafis)
 - LinkedIn: [Gabriel Demetrios Lafis](https://linkedin.com/in/gabriel-demetrios-lafis)
 
----
+### License
 
-## Português
-
-### 🎯 Visão Geral
-
-**Ai Financial Fraud Detection** é uma aplicação Python de nível profissional, complementada por HTML que demonstra práticas modernas de engenharia de software, incluindo arquitetura limpa, testes abrangentes, implantação containerizada e prontidão para CI/CD.
-
-A base de código compreende **4,681 linhas** de código-fonte organizadas em **31 módulos**, seguindo as melhores práticas do setor para manutenibilidade, escalabilidade e qualidade de código.
-
-### ✨ Funcionalidades Principais
-
-- **🤖 ML Pipeline**: End-to-end machine learning workflow from data to deployment
-- **🔬 Feature Engineering**: Automated feature extraction and transformation
-- **📊 Model Evaluation**: Comprehensive metrics and cross-validation
-- **🚀 Model Serving**: Production-ready prediction API
-- **🔍 Anomaly Detection**: Multiple detection algorithms with ensemble methods
-- **📊 Real-time Scoring**: Sub-second transaction evaluation
-- **🎯 Adaptive Learning**: Models that improve over time with new data
-- **📈 Alert System**: Configurable thresholds and notification pipelines
-
-### 🏗️ Arquitetura
-
-```mermaid
-graph TB
-    subgraph Core["🏗️ Core"]
-        A[Main Module]
-        B[Business Logic]
-        C[Data Processing]
-    end
-    
-    subgraph Support["🔧 Support"]
-        D[Configuration]
-        E[Utilities]
-        F[Tests]
-    end
-    
-    A --> B --> C
-    D --> A
-    E --> B
-    F -.-> B
-    
-    style Core fill:#e1f5fe
-    style Support fill:#f3e5f5
-```
-
-### 🚀 Início Rápido
-
-#### Prerequisites
-
-- Python 3.12+
-- pip (Python package manager)
-- Docker and Docker Compose (optional)
-
-#### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/galafis/ai-financial-fraud-detection.git
-cd ai-financial-fraud-detection
-
-# Create and activate virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-#### Running
-
-```bash
-# Run the application
-python src/api/main.py
-```
-
-### 🐳 Docker
-
-```bash
-# Start all services
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Stop all services
-docker-compose down
-
-# Rebuild after changes
-docker-compose up -d --build
-```
-
-### 🧪 Testing
-
-```bash
-# Run all tests
-pytest
-
-# Run with coverage report
-pytest --cov --cov-report=html
-
-# Run specific test module
-pytest tests/test_main.py -v
-
-# Run with detailed output
-pytest -v --tb=short
-```
-
-### 📁 Estrutura do Projeto
-
-```
-ai-financial-fraud-detection/
-├── config/        # Configuration
-│   ├── docker-compose.yml
-│   └── requirements.txt
-├── docker/
-│   ├── Dockerfile
-│   └── README.md
-├── docs/          # Documentation
-│   ├── images/
-│   └── architecture_diagram.md
-├── k8s/
-│   ├── README.md
-│   ├── deployment.yaml
-│   └── service.yaml
-├── notebooks/
-│   └── README.md
-├── src/          # Source code
-│   ├── api/           # API endpoints
-│   │   ├── README.md
-│   │   ├── __init__.py
-│   │   └── main.py
-│   ├── config/        # Configuration
-│   │   ├── README.md
-│   │   ├── __init__.py
-│   │   ├── api_config.py
-│   │   └── model_config.py
-│   ├── data/
-│   │   ├── connectors/
-│   │   ├── streaming/
-│   │   ├── README.md
-│   │   ├── __init__.py
-│   │   ├── data_loader.py
-│   │   └── feature_engineering.py
-│   ├── features/
-│   │   ├── README.md
-│   │   └── __init__.py
-│   ├── inference/
-│   │   ├── README.md
-│   │   └── __init__.py
-│   ├── models/        # Data models
-│   │   ├── ensemble/
-│   │   ├── supervised/
-│   │   ├── training/
-│   │   ├── unsupervised/
-│   │   ├── README.md
-│   │   ├── __init__.py
-│   │   └── ensemble_model.py
-│   ├── monitoring/
-│   │   ├── README.md
-│   │   ├── __init__.py
-│   │   └── model_monitoring.py
-│   ├── utils/         # Utilities
-│   │   ├── README.md
-│   │   ├── __init__.py
-│   │   └── logger.py
-│   ├── README.md
-│   ├── __init__.py
-│   └── backtest.py
-├── tests/         # Test suite
-│   ├── integration/
-│   │   ├── test_api.py
-│   │   └── test_data_streaming.py
-│   ├── performance/
-│   │   ├── README.md
-│   │   └── test_latency.py
-│   ├── unit/
-│   │   ├── test_ensemble_model.py
-│   │   └── test_features.py
-│   └── README.md
-├── CONTRIBUTING.md
-├── LICENSE
-└── README.md
-```
-
-### 🔒 Security Considerations
-
-| Feature | Implementation |
-|---------|---------------|
-| **Authentication** | JWT tokens with configurable expiration |
-| **Authorization** | Role-based access control (RBAC) |
-| **Input Validation** | Schema-based validation on all endpoints |
-| **Rate Limiting** | Configurable request throttling |
-| **Data Encryption** | AES-256 for sensitive data at rest |
-| **SQL Injection** | ORM-based queries prevent injection |
-| **CORS** | Configurable CORS policies |
-| **Audit Logging** | Complete request/response audit trail |
-
-> ⚠️ **Production Deployment**: Always configure proper SSL/TLS, rotate secrets regularly, and follow the principle of least privilege.
-
-### 🛠️ Stack Tecnológica
-
-| Tecnologia | Descrição | Papel |
-|------------|-----------|-------|
-| **Python** | Core Language | Primary |
-| HTML | 1 files | Supporting |
-
-### 🚀 Deployment
-
-#### Cloud Deployment Options
-
-The application is containerized and ready for deployment on:
-
-| Platform | Service | Notes |
-|----------|---------|-------|
-| **AWS** | ECS, EKS, EC2 | Full container support |
-| **Google Cloud** | Cloud Run, GKE | Serverless option available |
-| **Azure** | Container Instances, AKS | Enterprise integration |
-| **DigitalOcean** | App Platform, Droplets | Cost-effective option |
-
-```bash
-# Production build
-docker build -t ai-financial-fraud-detection:latest .
-
-# Tag for registry
-docker tag ai-financial-fraud-detection:latest registry.example.com/ai-financial-fraud-detection:latest
-
-# Push to registry
-docker push registry.example.com/ai-financial-fraud-detection:latest
-```
-
-### 🤝 Contribuindo
-
-Contribuições são bem-vindas! Sinta-se à vontade para enviar um Pull Request.
-
-### 📄 Licença
-
-Este projeto está licenciado sob a Licença MIT - veja o arquivo [LICENSE](LICENSE) para detalhes.
-
-### 👤 Autor
-
-**Gabriel Demetrios Lafis**
-- GitHub: [@galafis](https://github.com/galafis)
-- LinkedIn: [Gabriel Demetrios Lafis](https://linkedin.com/in/gabriel-demetrios-lafis)
+MIT License - see [LICENSE](LICENSE) for details.
