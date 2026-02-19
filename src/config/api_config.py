@@ -24,7 +24,7 @@ This API provides endpoints for:
 API_VERSION = "1.0.0"
 
 # Authentication settings
-SECRET_KEY = os.getenv("SECRET_KEY", "change-me-in-production")
+SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
