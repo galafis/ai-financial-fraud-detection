@@ -1,4 +1,4 @@
-# Docker Compose para AI Financial Fraud Detection System
+# Docker Compose para Financial Fraud Detection System
 # Configuracao basica para desenvolvimento e testes do sistema de deteccao de fraudes
 
 services:

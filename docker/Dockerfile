@@ -1,4 +1,4 @@
-# Dockerfile para AI Financial Fraud Detection System
+# Dockerfile para Financial Fraud Detection System
 # Propósito: Container minimalista para API FastAPI de detecção de fraudes
 # Base: Python 3.9 slim para otimizar tamanho da imagem
 

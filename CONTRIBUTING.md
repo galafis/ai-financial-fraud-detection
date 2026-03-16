@@ -1,6 +1,6 @@
 # Guia de Contribuição
 
-Bem-vindo(a) ao projeto AI-Powered Financial Fraud Detection! Agradecemos o seu interesse em contribuir.
+Bem-vindo(a) ao projeto Financial Fraud Detection! Agradecemos o seu interesse em contribuir.
 
 Para garantir um processo de colaboração eficiente e produtivo, por favor, siga as diretrizes abaixo:
 
